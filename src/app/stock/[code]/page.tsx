@@ -1,0 +1,207 @@
+import Link from 'next/link';
+import { RecommendationData, StockRecommendation } from '@/lib/types';
+import Disclaimer from '@/components/Disclaimer';
+
+async function getRecommendations(): Promise<RecommendationData | null> {
+  try {
+    const data = await import('../../../../public/data/recommendations.json');
+    return data.default as RecommendationData;
+  } catch {
+    return null;
+  }
+}
+
+// 生成静态路径
+export async function generateStaticParams() {
+  const data = await getRecommendations();
+  if (!data) return [];
+  return data.recommendations.map((stock) => ({
+    code: stock.code,
+  }));
+}
+
+export default async function StockDetailPage({
+  params,
+}: {
+  params: { code: string };
+}) {
+  const data = await getRecommendations();
+  const stock = data?.recommendations.find((s) => s.code === params.code);
+
+  if (!stock) {
+    return (
+      <main className="max-w-lg mx-auto px-4 py-6">
+        <Link href="/" className="text-blue-500 text-sm">← 返回首页</Link>
+        <div className="text-center py-12">
+          <h1 className="text-xl font-bold text-gray-800">股票未找到</h1>
+        </div>
+      </main>
+    );
+  }
+
+  const isUp = stock.change >= 0;
+
+  return (
+    <main className="max-w-lg mx-auto px-4 py-6">
+      {/* 返回按钮 */}
+      <Link href="/" className="inline-flex items-center text-blue-500 text-sm mb-4">
+        ← 返回首页
+      </Link>
+
+      {/* 股票基本信息 */}
+      <header className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-4">
+        <div className="flex justify-between items-start">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-800">{stock.name}</h1>
+            <p className="text-sm text-gray-500">{stock.code} · {stock.industry}</p>
+          </div>
+          <div className="text-right">
+            <div className="text-3xl font-bold text-blue-600">{stock.score}</div>
+            <div className="text-xs text-gray-400">综合评分</div>
+          </div>
+        </div>
+
+        {/* 价格信息 */}
+        <div className={`mt-4 p-3 rounded-lg ${isUp ? 'bg-up' : 'bg-down'}`}>
+          <div className={`text-3xl font-bold ${isUp ? 'text-up' : 'text-down'}`}>
+            ¥{stock.price.toFixed(2)}
+          </div>
+          <div className={`text-lg ${isUp ? 'text-up' : 'text-down'}`}>
+            {isUp ? '+' : ''}{stock.change.toFixed(2)}%
+          </div>
+        </div>
+      </header>
+
+      {/* 交易建议 */}
+      <section className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-4">
+        <h2 className="text-lg font-semibold text-gray-800 mb-3">交易建议</h2>
+
+        <div className="space-y-3">
+          <TradingItem
+            label="建议买入价"
+            value={`¥${stock.buyPriceLow.toFixed(2)} - ¥${stock.buyPriceHigh.toFixed(2)}`}
+            hint="等待回调至此区间买入"
+          />
+          <TradingItem
+            label="止损价"
+            value={`¥${stock.stopLoss.toFixed(2)}`}
+            hint={`跌破即止损 (${(((stock.stopLoss - stock.buyPriceLow) / stock.buyPriceLow) * 100).toFixed(1)}%)`}
+            danger
+          />
+          <TradingItem
+            label="止盈目标1"
+            value={`¥${stock.takeProfit1.toFixed(2)}`}
+            hint={`盈利 ${(((stock.takeProfit1 - stock.buyPriceLow) / stock.buyPriceLow) * 100).toFixed(1)}% 可减仓`}
+            success
+          />
+          <TradingItem
+            label="止盈目标2"
+            value={`¥${stock.takeProfit2.toFixed(2)}`}
+            hint={`盈利 ${(((stock.takeProfit2 - stock.buyPriceLow) / stock.buyPriceLow) * 100).toFixed(1)}% 可清仓`}
+            success
+          />
+          <TradingItem
+            label="建议仓位"
+            value={stock.positionRatio}
+            hint="单只股票投入比例"
+          />
+          <TradingItem
+            label="持有周期"
+            value={stock.holdingDays}
+            hint="建议持有时间"
+          />
+        </div>
+      </section>
+
+      {/* 推荐理由 */}
+      <section className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-4">
+        <h2 className="text-lg font-semibold text-gray-800 mb-3">推荐理由</h2>
+
+        {stock.reasons.technical.length > 0 && (
+          <ReasonBlock title="技术面" items={stock.reasons.technical} />
+        )}
+        {stock.reasons.fundamental.length > 0 && (
+          <ReasonBlock title="基本面" items={stock.reasons.fundamental} />
+        )}
+        {stock.reasons.capital.length > 0 && (
+          <ReasonBlock title="资金面" items={stock.reasons.capital} />
+        )}
+      </section>
+
+      {/* 风险等级 */}
+      <section className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-4">
+        <h2 className="text-lg font-semibold text-gray-800 mb-3">风险评估</h2>
+        <div className={`text-center p-4 rounded-lg ${
+          stock.riskLevel === 'low' ? 'bg-green-50' :
+          stock.riskLevel === 'medium' ? 'bg-yellow-50' :
+          'bg-red-50'
+        }`}>
+          <div className={`text-2xl font-bold ${
+            stock.riskLevel === 'low' ? 'text-green-600' :
+            stock.riskLevel === 'medium' ? 'text-yellow-600' :
+            'text-red-600'
+          }`}>
+            {stock.riskLevel === 'low' ? '低风险' :
+             stock.riskLevel === 'medium' ? '中风险' : '高风险'}
+          </div>
+          <p className="text-xs text-gray-500 mt-1">
+            {stock.riskLevel === 'low' ? '波动较小，适合稳健型投资者' :
+             stock.riskLevel === 'medium' ? '波动适中，注意控制仓位' :
+             '波动较大，建议小仓位参与'}
+          </p>
+        </div>
+      </section>
+
+      {/* 风险提示 */}
+      <Disclaimer />
+    </main>
+  );
+}
+
+// 交易建议项组件
+function TradingItem({
+  label,
+  value,
+  hint,
+  danger,
+  success,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  danger?: boolean;
+  success?: boolean;
+}) {
+  return (
+    <div className="flex justify-between items-center py-2 border-b border-gray-100 last:border-0">
+      <div>
+        <div className="text-sm text-gray-600">{label}</div>
+        {hint && <div className="text-xs text-gray-400">{hint}</div>}
+      </div>
+      <div className={`text-lg font-semibold ${
+        danger ? 'text-red-500' :
+        success ? 'text-green-500' :
+        'text-gray-800'
+      }`}>
+        {value}
+      </div>
+    </div>
+  );
+}
+
+// 推荐理由块组件
+function ReasonBlock({ title, items }: { title: string; items: string[] }) {
+  return (
+    <div className="mb-4 last:mb-0">
+      <h3 className="text-sm font-semibold text-gray-700 mb-2">{title}</h3>
+      <ul className="space-y-1">
+        {items.map((item, index) => (
+          <li key={index} className="text-sm text-gray-600 flex items-start">
+            <span className="text-blue-500 mr-2">•</span>
+            {item}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}

@@ -1,0 +1,292 @@
+{
+  "date": "2026-02-04",
+  "updateTime": "18:30",
+  "market": {
+    "shIndex": {
+      "value": 3150.23,
+      "change": 0.85
+    },
+    "szIndex": {
+      "value": 10250.56,
+      "change": 1.02
+    },
+    "sentiment": "偏多"
+  },
+  "recommendations": [
+    {
+      "code": "600519",
+      "name": "贵州茅台",
+      "industry": "白酒",
+      "price": 1720.00,
+      "change": 2.35,
+      "score": 85,
+      "buyPriceLow": 1680.00,
+      "buyPriceHigh": 1700.00,
+      "stopLoss": 1630.00,
+      "takeProfit1": 1800.00,
+      "takeProfit2": 1880.00,
+      "holdingDays": "5-15个交易日",
+      "positionRatio": "10-15%",
+      "riskLevel": "medium",
+      "reasons": {
+        "technical": ["MACD金叉，多头信号", "股价站上MA20", "RSI=55，处于健康区间"],
+        "fundamental": ["PE=28.5，估值合理", "白酒龙头，业绩稳健"],
+        "capital": ["近3日主力资金净流入"]
+      }
+    },
+    {
+      "code": "000858",
+      "name": "五粮液",
+      "industry": "白酒",
+      "price": 168.50,
+      "change": 1.82,
+      "score": 82,
+      "buyPriceLow": 165.00,
+      "buyPriceHigh": 167.00,
+      "stopLoss": 160.00,
+      "takeProfit1": 178.00,
+      "takeProfit2": 185.00,
+      "holdingDays": "5-15个交易日",
+      "positionRatio": "10-15%",
+      "riskLevel": "medium",
+      "reasons": {
+        "technical": ["均线多头排列", "RSI=48，未超买", "温和放量上涨"],
+        "fundamental": ["PE=22.3，估值偏低", "今日上涨1.82%，走势良好"],
+        "capital": []
+      }
+    },
+    {
+      "code": "002415",
+      "name": "海康威视",
+      "industry": "安防",
+      "price": 32.80,
+      "change": 1.56,
+      "score": 80,
+      "buyPriceLow": 32.00,
+      "buyPriceHigh": 32.50,
+      "stopLoss": 31.00,
+      "takeProfit1": 35.00,
+      "takeProfit2": 37.00,
+      "holdingDays": "5-15个交易日",
+      "positionRatio": "10-15%",
+      "riskLevel": "medium",
+      "reasons": {
+        "technical": ["MACD有向上趋势", "股价站上MA5短期均线"],
+        "fundamental": ["PE=18.5，估值偏低", "安防龙头"],
+        "capital": []
+      }
+    },
+    {
+      "code": "300750",
+      "name": "宁德时代",
+      "industry": "新能源",
+      "price": 215.60,
+      "change": 3.21,
+      "score": 78,
+      "buyPriceLow": 208.00,
+      "buyPriceHigh": 212.00,
+      "stopLoss": 198.00,
+      "takeProfit1": 235.00,
+      "takeProfit2": 250.00,
+      "holdingDays": "5-15个交易日",
+      "positionRatio": "5-10%",
+      "riskLevel": "high",
+      "reasons": {
+        "technical": ["放量上涨，成交量放大1.8倍", "突破前期平台"],
+        "fundamental": ["新能源龙头", "今日上涨3.21%"],
+        "capital": []
+      }
+    },
+    {
+      "code": "601318",
+      "name": "中国平安",
+      "industry": "保险",
+      "price": 48.20,
+      "change": 0.95,
+      "score": 76,
+      "buyPriceLow": 47.00,
+      "buyPriceHigh": 47.80,
+      "stopLoss": 45.50,
+      "takeProfit1": 51.00,
+      "takeProfit2": 54.00,
+      "holdingDays": "5-15个交易日",
+      "positionRatio": "15-20%",
+      "riskLevel": "low",
+      "reasons": {
+        "technical": ["RSI=42，处于健康区间", "股价站上MA20"],
+        "fundamental": ["PE=8.5，估值偏低", "PB=1.2，资产被低估", "保险龙头"],
+        "capital": []
+      }
+    }
+  ],
+  "allStocks": [
+    {
+      "code": "600519",
+      "name": "贵州茅台",
+      "industry": "白酒",
+      "price": 1720.00,
+      "change": 2.35,
+      "score": 85,
+      "buyPriceLow": 1680.00,
+      "buyPriceHigh": 1700.00,
+      "stopLoss": 1630.00,
+      "takeProfit1": 1800.00,
+      "takeProfit2": 1880.00,
+      "holdingDays": "5-15个交易日",
+      "positionRatio": "10-15%",
+      "riskLevel": "medium",
+      "reasons": {
+        "technical": ["MACD金叉，多头信号", "股价站上MA20", "RSI=55，处于健康区间"],
+        "fundamental": ["PE=28.5，估值合理", "白酒龙头，业绩稳健"],
+        "capital": ["近3日主力资金净流入"]
+      }
+    },
+    {
+      "code": "000858",
+      "name": "五粮液",
+      "industry": "白酒",
+      "price": 168.50,
+      "change": 1.82,
+      "score": 82,
+      "buyPriceLow": 165.00,
+      "buyPriceHigh": 167.00,
+      "stopLoss": 160.00,
+      "takeProfit1": 178.00,
+      "takeProfit2": 185.00,
+      "holdingDays": "5-15个交易日",
+      "positionRatio": "10-15%",
+      "riskLevel": "medium",
+      "reasons": {
+        "technical": ["均线多头排列", "RSI=48，未超买", "温和放量上涨"],
+        "fundamental": ["PE=22.3，估值偏低", "今日上涨1.82%，走势良好"],
+        "capital": []
+      }
+    },
+    {
+      "code": "002415",
+      "name": "海康威视",
+      "industry": "安防",
+      "price": 32.80,
+      "change": 1.56,
+      "score": 80,
+      "buyPriceLow": 32.00,
+      "buyPriceHigh": 32.50,
+      "stopLoss": 31.00,
+      "takeProfit1": 35.00,
+      "takeProfit2": 37.00,
+      "holdingDays": "5-15个交易日",
+      "positionRatio": "10-15%",
+      "riskLevel": "medium",
+      "reasons": {
+        "technical": ["MACD有向上趋势", "股价站上MA5短期均线"],
+        "fundamental": ["PE=18.5，估值偏低", "安防龙头"],
+        "capital": []
+      }
+    },
+    {
+      "code": "300750",
+      "name": "宁德时代",
+      "industry": "新能源",
+      "price": 215.60,
+      "change": 3.21,
+      "score": 78,
+      "buyPriceLow": 208.00,
+      "buyPriceHigh": 212.00,
+      "stopLoss": 198.00,
+      "takeProfit1": 235.00,
+      "takeProfit2": 250.00,
+      "holdingDays": "5-15个交易日",
+      "positionRatio": "5-10%",
+      "riskLevel": "high",
+      "reasons": {
+        "technical": ["放量上涨，成交量放大1.8倍", "突破前期平台"],
+        "fundamental": ["新能源龙头", "今日上涨3.21%"],
+        "capital": []
+      }
+    },
+    {
+      "code": "601318",
+      "name": "中国平安",
+      "industry": "保险",
+      "price": 48.20,
+      "change": 0.95,
+      "score": 76,
+      "buyPriceLow": 47.00,
+      "buyPriceHigh": 47.80,
+      "stopLoss": 45.50,
+      "takeProfit1": 51.00,
+      "takeProfit2": 54.00,
+      "holdingDays": "5-15个交易日",
+      "positionRatio": "15-20%",
+      "riskLevel": "low",
+      "reasons": {
+        "technical": ["RSI=42，处于健康区间", "股价站上MA20"],
+        "fundamental": ["PE=8.5，估值偏低", "PB=1.2，资产被低估", "保险龙头"],
+        "capital": []
+      }
+    },
+    {
+      "code": "600036",
+      "name": "招商银行",
+      "industry": "银行",
+      "price": 35.60,
+      "change": 0.85,
+      "score": 74,
+      "buyPriceLow": 34.80,
+      "buyPriceHigh": 35.30,
+      "stopLoss": 33.80,
+      "takeProfit1": 38.00,
+      "takeProfit2": 40.00,
+      "holdingDays": "5-15个交易日",
+      "positionRatio": "15-20%",
+      "riskLevel": "low",
+      "reasons": {
+        "technical": ["股价站上MA20"],
+        "fundamental": ["PE=6.2，估值偏低", "银行龙头"],
+        "capital": []
+      }
+    },
+    {
+      "code": "000001",
+      "name": "平安银行",
+      "industry": "银行",
+      "price": 12.35,
+      "change": 0.65,
+      "score": 72,
+      "buyPriceLow": 12.00,
+      "buyPriceHigh": 12.20,
+      "stopLoss": 11.60,
+      "takeProfit1": 13.20,
+      "takeProfit2": 14.00,
+      "holdingDays": "5-15个交易日",
+      "positionRatio": "15-20%",
+      "riskLevel": "low",
+      "reasons": {
+        "technical": ["RSI=45，处于健康区间"],
+        "fundamental": ["PE=5.8，估值偏低"],
+        "capital": []
+      }
+    },
+    {
+      "code": "600900",
+      "name": "长江电力",
+      "industry": "电力",
+      "price": 28.50,
+      "change": 0.35,
+      "score": 70,
+      "buyPriceLow": 27.80,
+      "buyPriceHigh": 28.20,
+      "stopLoss": 27.00,
+      "takeProfit1": 30.00,
+      "takeProfit2": 31.50,
+      "holdingDays": "5-15个交易日",
+      "positionRatio": "15-20%",
+      "riskLevel": "low",
+      "reasons": {
+        "technical": ["均线多头排列"],
+        "fundamental": ["防御性股票", "分红稳定"],
+        "capital": []
+      }
+    }
+  ]
+}
