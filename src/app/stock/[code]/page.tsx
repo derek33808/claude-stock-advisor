@@ -27,13 +27,15 @@ async function getRecommendations(): Promise<RecommendationData | null> {
 export default async function StockDetailPage({
   params,
 }: {
-  params: { code: string };
+  params: Promise<{ code: string }>;
 }) {
+  // Next.js 15+ 中 params 是 Promise，需要 await
+  const { code } = await params;
   const data = await getRecommendations();
   // 先在 recommendations 中查找，再在 allStocks 中查找
-  let stock = data?.recommendations.find((s) => s.code === params.code);
+  let stock = data?.recommendations.find((s) => s.code === code);
   if (!stock && data?.allStocks) {
-    stock = data.allStocks.find((s) => s.code === params.code);
+    stock = data.allStocks.find((s) => s.code === code);
   }
 
   if (!stock) {
