@@ -1,23 +1,21 @@
 import Link from 'next/link';
 import { RecommendationData, StockRecommendation } from '@/lib/types';
 import Disclaimer from '@/components/Disclaimer';
+import { promises as fs } from 'fs';
+import path from 'path';
+
+// 强制动态渲染，不使用静态生成
+export const dynamic = 'force-dynamic';
 
 async function getRecommendations(): Promise<RecommendationData | null> {
   try {
-    const data = await import('../../../../public/data/recommendations.json');
-    return data.default as RecommendationData;
+    // 直接读取文件，避免 import 缓存
+    const filePath = path.join(process.cwd(), 'public/data/recommendations.json');
+    const content = await fs.readFile(filePath, 'utf-8');
+    return JSON.parse(content) as RecommendationData;
   } catch {
     return null;
   }
-}
-
-// 生成静态路径
-export async function generateStaticParams() {
-  const data = await getRecommendations();
-  if (!data) return [];
-  return data.recommendations.map((stock) => ({
-    code: stock.code,
-  }));
 }
 
 export default async function StockDetailPage({
@@ -26,7 +24,11 @@ export default async function StockDetailPage({
   params: { code: string };
 }) {
   const data = await getRecommendations();
-  const stock = data?.recommendations.find((s) => s.code === params.code);
+  // 先在 recommendations 中查找，再在 allStocks 中查找
+  let stock = data?.recommendations.find((s) => s.code === params.code);
+  if (!stock && data?.allStocks) {
+    stock = data.allStocks.find((s) => s.code === params.code);
+  }
 
   if (!stock) {
     return (

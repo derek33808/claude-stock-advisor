@@ -3,12 +3,18 @@ import MarketHeader from '@/components/MarketHeader';
 import SearchBox from '@/components/SearchBox';
 import Disclaimer from '@/components/Disclaimer';
 import { RecommendationData } from '@/lib/types';
+import { promises as fs } from 'fs';
+import path from 'path';
+
+// 强制动态渲染
+export const dynamic = 'force-dynamic';
 
 async function getRecommendations(): Promise<RecommendationData | null> {
   try {
-    // 在构建时读取 JSON 文件
-    const data = await import('../../public/data/recommendations.json');
-    return data.default as RecommendationData;
+    // 直接读取文件，避免缓存
+    const filePath = path.join(process.cwd(), 'public/data/recommendations.json');
+    const content = await fs.readFile(filePath, 'utf-8');
+    return JSON.parse(content) as RecommendationData;
   } catch {
     return null;
   }
