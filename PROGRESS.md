@@ -1,170 +1,182 @@
-# A股交易策略指导系统 - 开发进度
+# A股智能交易策略系统 - 开发进度
 
-## 当前状态: 🚀 MVP 开发中
+## 当前状态: 🔄 后端完成，部署测试中
 
-**最后更新**: 2026-02-04
-
----
-
-## 已完成
-
-### 2026-02-04 - MVP 架构简化决策
-
-- [x] 确认简化架构方案
-  - 框架: Next.js + TypeScript + Tailwind CSS
-  - 数据: Python 脚本生成 JSON，无需数据库
-  - 部署: Netlify 静态部署
-- [x] 确认 MVP 功能范围
-  - 数据更新: 手动运行脚本
-  - K线图: MVP 不需要
-  - UI风格: 简洁卡片式，移动端优先
-
-### 2026-02-03 - 产品设计 (v1.0)
-
-- [x] 完成产品愿景和核心价值定义
-- [x] 定义目标用户画像（个人投资者、量化入门者、忙碌上班族）
-- [x] 编写3个典型用户场景
-- [x] 完成功能需求梳理（P0/P1/P2分级）
-- [x] 设计数据源方案（AKShare主 + Tushare备）
-- [x] 设计数据库存储方案
-- [x] 确定技术栈选型
-- [x] 设计系统架构
-- [x] 定义API接口规范
-- [x] 设计4个核心选股策略算法框架
-  - MACD金叉策略
-  - RSI超卖反弹策略
-  - 均线多头排列策略
-  - 量价配合策略
-- [x] 设计综合评分系统（技术面40%+基本面30%+资金20%+情绪10%）
-- [x] 设计交易价格计算算法（支撑阻力位、止盈止损、盈亏比）
-- [x] 完成UI/UX交互设计（首页+详情页布局）
-- [x] 编写合规风险声明
-- [x] 制定开发路线图（3个Phase，共5周）
-- [x] 定义验收标准
-
-**输出文档**: `DESIGN.md` (完整产品设计文档)
+**最后更新**: 2026-02-04 23:50
 
 ---
 
-## MVP 开发完成
+## 架构演进
 
-### 2026-02-04 - MVP 开发
+### v1.0 (已废弃) - 纯静态方案
+```
+Next.js (SSG) → 静态 JSON → Render 部署
+```
+**问题**: 只能搜索预生成的 49 支推荐股票，无法实时查询任意股票
 
-**已完成:**
-- [x] Next.js 项目结构搭建
-- [x] 前端组件实现 (首页、详情页、搜索页)
-- [x] 股票查询功能
-- [x] Python 数据生成脚本 (AKShare + 选股策略 + 技术指标)
-- [x] Netlify 配置 (netlify.toml)
-- [x] 示例数据生成
-- [x] 项目构建测试通过 ✅
+### v2.0 (当前) - 全栈分离方案
+```
+Netlify (前端) → Render (FastAPI) → Supabase (数据库)
+                       ↓
+                   AKShare (实时数据)
+```
+**优势**:
+- ✅ 支持实时查询任意 A 股/ETF
+- ✅ 推荐记录持久化存储
+- ✅ 推荐跟踪与回溯
+- ✅ 策略胜率统计
+- ✅ 预留 AI 分析模块
 
-**使用说明:**
-```bash
-# 1. 本地开发
-npm run dev
+---
 
-# 2. 获取真实数据 (需联网)
-cd scripts
-pip3 install -r requirements.txt
-python3 generate_recommendations.py
+## 今日完成 (2026-02-04)
 
-# 3. 构建部署
-npm run build
-# out/ 目录即为部署文件
+### ✅ Supabase 项目创建
+- [x] 创建项目: stock-advisor (Asia-Pacific 区域)
+- [x] 创建数据库表:
+  - recommendations (推荐记录)
+  - market_overview (市场概览)
+  - stock_cache (股票缓存)
+  - recommendation_tracking (跟踪记录)
+- [x] 创建索引优化查询
+- [x] 获取 API 凭证
+
+**Supabase 配置**:
+```
+项目: stock-advisor
+URL: https://hntogkygloioqyexevac.supabase.co
 ```
 
-**部署到 Netlify:**
-1. 在 Netlify 网站创建新项目
-2. 上传 out/ 目录 或 连接 GitHub
-3. 构建命令: `npm run build`
-4. 发布目录: `out`
+### ✅ 后端项目完成
+
+已创建文件:
+```
+backend/
+├── app/
+│   ├── __init__.py
+│   ├── main.py              # FastAPI 入口 + CORS
+│   ├── config.py            # Pydantic Settings
+│   ├── api/
+│   │   ├── __init__.py
+│   │   ├── stock.py         # 股票查询 API
+│   │   ├── recommendations.py # 推荐 API
+│   │   └── stats.py         # 统计 API
+│   ├── services/
+│   │   ├── __init__.py
+│   │   ├── akshare_service.py    # AKShare 数据获取
+│   │   ├── indicator_service.py  # 技术指标计算
+│   │   └── strategy_service.py   # 选股策略
+│   ├── models/
+│   │   └── schemas.py       # Pydantic 模型
+│   └── db/
+│       └── supabase.py      # Supabase 客户端
+├── requirements.txt
+├── .env                     # 环境变量 (gitignored)
+├── .env.example
+└── render.yaml              # Render 部署配置
+```
+
+**API 端点**:
+- `GET /stock/{code}` - 股票完整分析 (实时)
+- `GET /stock/{code}/kline` - K线数据
+- `GET /stock/search` - 股票搜索
+- `GET /recommendations` - 今日推荐
+- `GET /recommendations/{date}` - 指定日期推荐
+- `POST /recommendations/generate` - 手动生成推荐
+- `GET /market/overview` - 市场概览
+- `GET /stats/performance` - 策略表现统计
+
+### ✅ 前端重构进行中
+
+已完成:
+- [x] 创建 API 服务层 (src/lib/api.ts)
+- [x] 重构搜索页面 - 支持实时查询
+  - 实时技术指标计算
+  - 交易建议生成
+  - 加载/错误状态处理
+- [x] 创建前端环境配置 (.env.local)
+
+待完成:
+- [ ] 重构首页 (使用后端 recommendations API)
+- [ ] 删除旧的静态数据依赖
 
 ---
 
-## 下一步计划
+## 下一步行动
 
-### 部署到 Netlify
-1. 在 Netlify 创建新项目
-2. 连接 GitHub 仓库 (或直接拖拽 out/ 目录)
-3. 获取访问链接
-4. 手机测试
+1. **启动后端本地测试**
+   ```bash
+   cd backend
+   python -m venv venv
+   source venv/bin/activate
+   pip install -r requirements.txt
+   uvicorn app.main:app --reload
+   ```
 
-### Phase 1: MVP开发 (预计2周) - 原计划
+2. **更新 Supabase anon key**
+   - 从 Supabase 控制台复制 anon key
+   - 更新 backend/.env 中的 SUPABASE_KEY
 
-**M1.1 - 数据获取模块 (Day 1-2)**
-- [ ] 创建 Python 虚拟环境
-- [ ] 安装 AKShare 依赖
-- [ ] 实现股票列表获取
-- [ ] 实现日线数据获取
-- [ ] 实现财务数据获取
-- [ ] 测试数据获取稳定性
+3. **测试 API**
+   ```bash
+   curl http://localhost:8000/stock/600519
+   curl http://localhost:8000/market/overview
+   ```
 
-**M1.2 - 技术指标计算 (Day 3-4)**
-- [ ] 安装 pandas-ta 依赖
-- [ ] 实现 MA 均线计算
-- [ ] 实现 MACD 计算
-- [ ] 实现 RSI 计算
-- [ ] 实现 KDJ 计算
-- [ ] 实现 BOLL 计算
-- [ ] 单元测试验证指标准确性
+4. **启动前端**
+   ```bash
+   npm run dev
+   # 访问 http://localhost:3000/search?code=600519
+   ```
 
-**M1.3 - 选股策略引擎 (Day 5-6)**
-- [ ] 实现基础过滤器（排除ST/停牌/新股）
-- [ ] 实现 MACD 金叉策略
-- [ ] 实现 RSI 超卖反弹策略
-- [ ] 实现均线多头排列策略
-- [ ] 实现量价配合策略
-- [ ] 实现综合评分系统
-- [ ] 策略回测验证
-
-**M1.4 - 交易建议生成 (Day 7-8)**
-- [ ] 实现支撑/阻力位计算
-- [ ] 实现买入价格区间计算
-- [ ] 实现止损价计算
-- [ ] 实现止盈价计算
-- [ ] 实现仓位建议计算
-- [ ] 生成完整交易计划
-
-**M1.5 - 后端API (Day 9-10)**
-- [ ] 创建 FastAPI 项目结构
-- [ ] 配置 SQLite 数据库
-- [ ] 实现推荐列表API
-- [ ] 实现股票详情API
-- [ ] 实现K线数据API
-- [ ] 实现市场概览API
-- [ ] API文档生成
-
-**M1.6 - 前端界面 (Day 11-14)**
-- [ ] 创建 React + TypeScript 项目
-- [ ] 安装 Ant Design + ECharts
-- [ ] 实现首页布局
-- [ ] 实现推荐股票卡片组件
-- [ ] 实现股票详情页
-- [ ] 实现K线图组件
-- [ ] 实现交易建议面板
-- [ ] 添加风险声明组件
-- [ ] 移动端适配
+5. **部署**
+   - 后端: 推送到 GitHub → Render 自动部署
+   - 前端: 推送到 GitHub → Netlify 自动部署
 
 ---
 
-## 待解决问题
+## 环境配置
 
-1. [ ] MVP阶段是否需要用户认证系统（建议先不需要）
-2. [ ] 数据更新是否采用定时任务还是手动触发（建议定时：17:00）
-3. [ ] K线图组件选型：ECharts vs TradingView Lightweight Charts
+### Supabase
+```
+项目: stock-advisor
+URL: https://hntogkygloioqyexevac.supabase.co
+Key: (从控制台获取 anon key)
+```
+
+### Render (待部署)
+```
+后端服务: stock-advisor-api
+URL: https://stock-advisor-api.onrender.com
+```
+
+### Netlify (待部署)
+```
+前端服务: stock-advisor
+URL: https://stock-advisor.netlify.app
+```
 
 ---
 
-## 开发日志
+## 技术栈
 
-### 2026-02-03
-- 完成完整产品设计文档
-- 包含：用户场景、功能需求、数据方案、技术架构、策略算法、交互设计、合规声明
-- 确定使用 AKShare 作为主数据源（免费、数据全面、无需注册）
-- 选择 SQLite 作为MVP数据库（轻量启动），后期可迁移到 PostgreSQL
-- 设计了4种核心选股策略和综合评分系统
-- 完成首页和详情页的交互设计
+### 后端
+- Python 3.11+
+- FastAPI 0.109.0
+- AKShare 1.12.70 (A股数据)
+- pandas + pandas-ta (技术指标)
+- Supabase Python SDK
+
+### 前端
+- Next.js 15.1
+- React 19
+- TypeScript
+- Tailwind CSS
+
+### 部署
+- Render (后端 + Cron Job)
+- Netlify (前端静态托管)
+- Supabase (PostgreSQL)
 
 ---
 
@@ -172,7 +184,11 @@ npm run build
 
 | 文档 | 状态 | 说明 |
 |-----|------|------|
-| DESIGN.md | 完成 | 产品设计文档 |
-| PROGRESS.md | 维护中 | 开发进度跟踪 |
-| QA_REPORT.md | 待创建 | QA审查报告 |
-| SUMMARY.md | 待创建 | 项目完成总结 |
+| DESIGN.md | ✅ v2.0 | 完整产品设计文档 |
+| PROGRESS.md | ✅ 维护中 | 开发进度跟踪 |
+| QA_REPORT.md | ⏳ 待创建 | QA 审查报告 |
+| SUMMARY.md | ⏳ 待创建 | 项目完成总结 |
+
+---
+
+*最后更新: 2026-02-04 23:50*

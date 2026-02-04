@@ -27,6 +27,11 @@ next-env.d.ts
 scripts/__pycache__/
 scripts/*.pyc
 scripts/venv/
+backend/__pycache__/
+backend/venv/
+backend/.env
+**/__pycache__/
+*.pyc
 
 # IDE
 .vscode/
