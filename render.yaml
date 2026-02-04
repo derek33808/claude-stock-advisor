@@ -1,0 +1,26 @@
+# Render Blueprint
+# Cron Job 更新数据 -> 推送到 GitHub -> 自动触发 Web Service 重新部署
+
+services:
+  # Next.js Web 服务
+  - type: web
+    name: stock-advisor
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+
+  # Python Cron Job - 每天自动更新数据并推送到 GitHub
+  - type: cron
+    name: stock-advisor-updater
+    runtime: python
+    plan: free
+    schedule: "30 9 * * 1-5"  # UTC 9:30 = 北京时间 17:30，周一到周五
+    buildCommand: pip install -r scripts/requirements.txt
+    startCommand: python scripts/update_and_push.py
+    envVars:
+      - key: GIT_TOKEN
+        sync: false  # 需要在 Render 控制台手动设置

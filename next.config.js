@@ -1,8 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'export',  // 静态导出，用于 Netlify
+  // Render 全栈部署，使用服务端渲染
   images: {
-    unoptimized: true,  // 静态导出需要
+    unoptimized: true,
   },
 };
 

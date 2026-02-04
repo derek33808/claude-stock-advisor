@@ -35,3 +35,7 @@ scripts/venv/
 # OS
 .DS_Store
 Thumbs.db
+
+# Deploy cache
+.netlify
+.render
