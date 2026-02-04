@@ -3,14 +3,19 @@ import MarketHeader from '@/components/MarketHeader';
 import SearchBox from '@/components/SearchBox';
 import Disclaimer from '@/components/Disclaimer';
 import { RecommendationData } from '@/lib/types';
+import { headers } from 'next/headers';
 
 // 强制动态渲染
 export const dynamic = 'force-dynamic';
 
 async function getRecommendations(): Promise<RecommendationData | null> {
   try {
-    // 使用 fetch 获取数据，兼容生产环境
-    const baseUrl = process.env.RENDER_EXTERNAL_URL || 'http://localhost:3000';
+    // 从请求头获取主机名，构建完整 URL
+    const headersList = await headers();
+    const host = headersList.get('host') || 'localhost:3000';
+    const protocol = host.includes('localhost') ? 'http' : 'https';
+    const baseUrl = `${protocol}://${host}`;
+
     const res = await fetch(`${baseUrl}/data/recommendations.json`, {
       cache: 'no-store',
     });
