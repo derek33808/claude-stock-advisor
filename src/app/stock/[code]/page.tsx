@@ -72,16 +72,17 @@ export default async function StockDetailPage({
 }) {
   // Next.js 15+ 中 params 是 Promise，需要 await
   const { code } = await params;
-  const data = await getRecommendations();
-  // 先在 recommendations 中查找，再在 allStocks 中查找
-  let stock = data?.recommendations.find((s) => s.code === code);
-  if (!stock && data?.allStocks) {
-    stock = data.allStocks.find((s) => s.code === code);
-  }
 
-  // 如果本地 JSON 中没找到，从后端 API 获取
+  // 优先从后端 API 获取（包含 AI 生成的交易指导摘要）
+  let stock = (await getStockFromAPI(code)) ?? undefined;
+
+  // 如果 API 失败，从本地 JSON 获取
   if (!stock) {
-    stock = (await getStockFromAPI(code)) ?? undefined;
+    const data = await getRecommendations();
+    stock = data?.recommendations.find((s) => s.code === code);
+    if (!stock && data?.allStocks) {
+      stock = data.allStocks.find((s) => s.code === code);
+    }
   }
 
   if (!stock) {
