@@ -6,6 +6,7 @@ import { StockRecommendation } from '@/lib/types';
 import { getStockAnalysis, getAIRankings, StockAnalysis, AIRankingItem } from '@/lib/api';
 import StockCard from './StockCard';
 import TabSwitcher, { TabType } from './TabSwitcher';
+import WatchlistButton from './WatchlistButton';
 import Link from 'next/link';
 
 interface HomeContentProps {
@@ -37,75 +38,94 @@ function convertToRecommendation(analysis: StockAnalysis): StockRecommendation {
   };
 }
 
-// AI 排名卡片组件
+// AI 排名卡片组件 - 与推荐卡片风格一致
 function AIRankingCard({ item }: { item: AIRankingItem }) {
   const isUp = item.change >= 0;
 
-  // 根据 AI 评分确定颜色
-  const getScoreColor = (score: number) => {
-    if (score >= 80) return 'text-green-600 bg-green-50';
-    if (score >= 60) return 'text-blue-600 bg-blue-50';
-    if (score >= 40) return 'text-yellow-600 bg-yellow-50';
-    return 'text-gray-600 bg-gray-50';
+  // 风险等级标签
+  const getRiskLabel = (risk: string) => {
+    const riskMap: Record<string, { text: string; class: string }> = {
+      low: { text: '低风险', class: 'bg-green-100 text-green-700' },
+      medium: { text: '中风险', class: 'bg-yellow-100 text-yellow-700' },
+      high: { text: '高风险', class: 'bg-red-100 text-red-700' },
+    };
+    return riskMap[risk] || riskMap.medium;
   };
 
-  // 根据建议确定颜色
-  const getSuggestionColor = (suggestion: string) => {
-    if (suggestion === '买入' || suggestion === '强烈买入') return 'text-red-600 bg-red-50';
-    if (suggestion === '观望' || suggestion === '持有') return 'text-blue-600 bg-blue-50';
-    if (suggestion === '回避' || suggestion === '卖出') return 'text-green-600 bg-green-50';
-    return 'text-gray-600 bg-gray-50';
-  };
+  const riskInfo = getRiskLabel(item.risk_level);
 
   return (
     <Link href={`/stock/${item.code}`}>
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 hover:shadow-md transition-shadow">
-        {/* 排名和基本信息 */}
-        <div className="flex items-start justify-between mb-3">
-          <div className="flex items-center gap-3">
-            {/* 排名 */}
-            <div className={`
-              w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold
-              ${item.rank <= 3 ? 'bg-gradient-to-br from-yellow-400 to-orange-500 text-white' : 'bg-gray-100 text-gray-600'}
-            `}>
-              {item.rank}
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-semibold text-gray-800">{item.name}</span>
-                <span className="text-xs text-gray-400">{item.code}</span>
-              </div>
-              <span className="text-xs text-gray-500">{item.industry}</span>
-            </div>
-          </div>
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 hover:shadow-md transition-shadow cursor-pointer relative">
+        {/* 自选按钮 */}
+        <div className="absolute top-3 right-3 z-10">
+          <WatchlistButton code={item.code} name={item.name} size="sm" />
+        </div>
 
-          {/* AI 评分 */}
-          <div className={`px-3 py-1 rounded-full text-sm font-bold ${getScoreColor(item.ai_ranking_score)}`}>
-            {item.ai_ranking_score}分
+        {/* 排名和风险等级 */}
+        <div className="flex justify-between items-start mb-3">
+          <div className="flex items-center gap-2">
+            {/* AI 排名徽章 */}
+            <span className={`
+              text-white text-xs font-bold px-2 py-1 rounded
+              ${item.rank <= 3 ? 'bg-gradient-to-r from-purple-500 to-pink-500' : 'bg-purple-500'}
+            `}>
+              AI #{item.rank}
+            </span>
+            <span className={`text-xs px-2 py-1 rounded ${riskInfo.class}`}>
+              {riskInfo.text}
+            </span>
           </div>
+          <div className="text-right pr-8">
+            <div className="text-2xl font-bold text-purple-600">{item.ai_ranking_score}</div>
+            <div className="text-xs text-gray-400">AI评分</div>
+          </div>
+        </div>
+
+        {/* 股票名称和代码 */}
+        <div className="mb-3">
+          <h3 className="text-lg font-semibold text-gray-800">{item.name}</h3>
+          <p className="text-sm text-gray-500">{item.code} · {item.industry}</p>
         </div>
 
         {/* 价格和涨跌 */}
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex justify-between items-end mb-3">
           <div>
-            <span className="text-xl font-bold text-gray-800">¥{item.price.toFixed(2)}</span>
-            <span className={`ml-2 text-sm font-medium ${isUp ? 'text-red-500' : 'text-green-500'}`}>
+            <div className={`text-2xl font-bold ${isUp ? 'text-up' : 'text-down'}`}>
+              ¥{item.price.toFixed(2)}
+            </div>
+            <div className={`text-sm ${isUp ? 'text-up' : 'text-down'}`}>
               {isUp ? '+' : ''}{item.change.toFixed(2)}%
-            </span>
+            </div>
           </div>
-          <span className={`px-2 py-0.5 rounded text-xs font-medium ${getSuggestionColor(item.suggestion)}`}>
-            {item.suggestion}
-          </span>
+          <div className="text-right">
+            <div className="text-xs text-gray-500">操作建议</div>
+            <div className={`text-sm font-semibold ${
+              item.action === '买入' ? 'text-red-600' :
+              item.action === '回避' ? 'text-green-600' :
+              'text-blue-600'
+            }`}>
+              {item.action}
+            </div>
+          </div>
         </div>
 
-        {/* 技术指标 */}
-        <div className="flex gap-2 text-xs">
+        {/* 建议买入区间 */}
+        <div className={`rounded-lg p-3 ${isUp ? 'bg-up' : 'bg-down'}`}>
+          <div className="text-xs text-gray-600 mb-1">建议买入区间</div>
+          <div className="text-sm font-semibold">
+            ¥{item.buy_price_low.toFixed(2)} - ¥{item.buy_price_high.toFixed(2)}
+          </div>
+        </div>
+
+        {/* 技术指标标签 */}
+        <div className="flex flex-wrap gap-2 mt-3 text-xs">
           <span className={`px-2 py-1 rounded ${
             item.macd_signal.includes('金叉') ? 'bg-red-50 text-red-600' :
             item.macd_signal.includes('死叉') ? 'bg-green-50 text-green-600' :
             'bg-gray-50 text-gray-600'
           }`}>
-            MACD: {item.macd_signal}
+            {item.macd_signal}
           </span>
           <span className={`px-2 py-1 rounded ${
             item.ma_trend === '多头排列' ? 'bg-red-50 text-red-600' :
@@ -115,8 +135,13 @@ function AIRankingCard({ item }: { item: AIRankingItem }) {
             {item.ma_trend}
           </span>
           <span className="px-2 py-1 rounded bg-purple-50 text-purple-600">
-            技术分: {item.technical_score}
+            技术分 {item.technical_score}
           </span>
+        </div>
+
+        {/* 点击提示 */}
+        <div className="mt-3 text-center text-xs text-gray-400">
+          点击查看详细分析 →
         </div>
       </div>
     </Link>

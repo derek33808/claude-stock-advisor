@@ -196,7 +196,16 @@ export interface AIRankingItem {
   ai_ranking_score: number;
   macd_signal: string;
   ma_trend: string;
-  suggestion: string;
+  action: string;
+  // 交易建议详情
+  buy_price_low: number;
+  buy_price_high: number;
+  stop_loss: number;
+  take_profit_1: number;
+  take_profit_2: number;
+  risk_level: string;
+  holding_days: string;
+  position_ratio: string;
 }
 
 /**

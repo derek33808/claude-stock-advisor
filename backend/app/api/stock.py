@@ -379,7 +379,16 @@ async def get_ai_rankings(limit: int = Query(default=10, le=20, description="返
                 "ai_ranking_score": ai_ranking_score,
                 "macd_signal": macd.get("signal", "未知"),
                 "ma_trend": ma.get("trend", "震荡"),
-                "suggestion": suggestion.get("action", "观望"),
+                "action": suggestion.get("action", "观望"),
+                # 交易建议详情
+                "buy_price_low": suggestion.get("buy_price_low", 0),
+                "buy_price_high": suggestion.get("buy_price_high", 0),
+                "stop_loss": suggestion.get("stop_loss", 0),
+                "take_profit_1": suggestion.get("take_profit_1", 0),
+                "take_profit_2": suggestion.get("take_profit_2", 0),
+                "risk_level": suggestion.get("risk_level", "medium"),
+                "holding_days": suggestion.get("holding_days", "5-15个交易日"),
+                "position_ratio": suggestion.get("position", "10-15%"),
             })
 
         except Exception as e:
