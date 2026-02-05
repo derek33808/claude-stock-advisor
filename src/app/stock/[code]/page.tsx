@@ -58,6 +58,7 @@ async function getStockFromAPI(code: string): Promise<StockRecommendation | null
         capital: analysis.reasons.filter((r: string) => r.includes('资金') || r.includes('成交') || r.includes('量')),
       },
       riskLevel: analysis.suggestion.risk_level as 'low' | 'medium' | 'high',
+      summary: analysis.summary,
     };
   } catch {
     return null;
@@ -207,6 +208,19 @@ export default async function StockDetailPage({
           </p>
         </div>
       </section>
+
+      {/* 交易指导摘要 */}
+      {stock.summary && (
+        <section className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl shadow-sm border border-blue-100 p-4 mb-4">
+          <h2 className="text-lg font-semibold text-gray-800 mb-3 flex items-center">
+            <span className="mr-2">📝</span>
+            交易指导
+          </h2>
+          <div className="bg-white rounded-lg p-4 text-sm text-gray-700 whitespace-pre-line leading-relaxed">
+            {stock.summary}
+          </div>
+        </section>
+      )}
 
       {/* 风险提示 */}
       <Disclaimer />

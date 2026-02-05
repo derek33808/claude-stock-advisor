@@ -33,6 +33,9 @@ export interface StockRecommendation {
 
   // 风险等级
   riskLevel: 'low' | 'medium' | 'high';
+
+  // 交易指导摘要
+  summary?: string;
 }
 
 export interface MarketOverview {
