@@ -80,7 +80,7 @@ export default async function StockDetailPage({
 
   // 如果本地 JSON 中没找到，从后端 API 获取
   if (!stock) {
-    stock = await getStockFromAPI(code);
+    stock = (await getStockFromAPI(code)) ?? undefined;
   }
 
   if (!stock) {
