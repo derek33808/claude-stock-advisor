@@ -62,11 +62,36 @@ STOCK_INFO = {code: {"name": name, "industry": industry} for code, name, industr
 
 
 def _get_market_code(code: str) -> str:
-    """获取市场代码: 1=沪市, 0=深市"""
-    if code.startswith('6') or code.startswith('9'):
+    """
+    获取市场代码: 1=沪市, 0=深市
+
+    上海市场 (1):
+      - 60xxxx: 沪市A股主板
+      - 68xxxx: 科创板
+      - 9xxxxx: B股
+      - 5xxxxx: 沪市ETF/LOF (510, 511, 512, 513, 515, 516, 518, 560, 588等)
+      - 11xxxx: 可转债
+
+    深圳市场 (0):
+      - 00xxxx: 深市A股主板
+      - 30xxxx: 创业板
+      - 2xxxxx: B股
+      - 159xxx: 深市ETF
+      - 12xxxx: 可转债
+    """
+    # 上海市场
+    if code.startswith('6'):  # 60xxxx 主板, 68xxxx 科创板
         return '1'
-    else:
-        return '0'
+    if code.startswith('9'):  # B股
+        return '1'
+    if code.startswith('5'):  # 沪市ETF/LOF: 510, 511, 512, 513, 515, 516, 518, 560, 588等
+        return '1'
+    if code.startswith('11'):  # 沪市可转债
+        return '1'
+
+    # 深圳市场 (默认)
+    # 00xxxx 深市主板, 30xxxx 创业板, 159xxx 深市ETF, 12xxxx 可转债
+    return '0'
 
 
 def get_stock_realtime(code: str) -> Optional[dict]:
