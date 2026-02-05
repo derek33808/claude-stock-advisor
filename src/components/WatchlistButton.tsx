@@ -37,8 +37,8 @@ export default function WatchlistButton({
         flex items-center justify-center rounded-full
         transition-all duration-200
         ${isWatched
-          ? 'text-yellow-500 hover:text-yellow-600 bg-yellow-50 hover:bg-yellow-100'
-          : 'text-gray-300 hover:text-yellow-400 bg-gray-50 hover:bg-yellow-50'
+          ? 'text-yellow-500 hover:text-yellow-600 bg-yellow-100 hover:bg-yellow-200'
+          : 'text-gray-400 hover:text-yellow-500 bg-gray-100 hover:bg-yellow-100 border border-gray-200'
         }
         ${sizeClasses[size]}
         ${className}
