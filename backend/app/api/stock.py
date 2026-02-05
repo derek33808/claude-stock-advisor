@@ -4,97 +4,10 @@
 
 from fastapi import APIRouter, HTTPException
 from app.services import eastmoney_service, indicator_service, strategy_service
+from app.services.glm_service import generate_summary_with_fallback
 from app.models.schemas import StockAnalysis
 
 router = APIRouter()
-
-
-def generate_trading_summary(
-    name: str,
-    code: str,
-    price: float,
-    change: float,
-    score: int,
-    suggestion: dict,
-    indicators: dict,
-    reasons: list,
-) -> str:
-    """
-    生成股票交易指导摘要文字
-    """
-    # 判断行情趋势
-    if change > 2:
-        trend = "强势上涨"
-    elif change > 0:
-        trend = "小幅上涨"
-    elif change > -2:
-        trend = "小幅下跌"
-    else:
-        trend = "明显下跌"
-
-    # 评分评价
-    if score >= 80:
-        score_desc = "优秀"
-        score_advice = "具备较好的投资价值"
-    elif score >= 60:
-        score_desc = "良好"
-        score_advice = "可适当关注"
-    elif score >= 40:
-        score_desc = "一般"
-        score_advice = "建议谨慎操作"
-    else:
-        score_desc = "较弱"
-        score_advice = "建议观望为主"
-
-    # 风险等级
-    risk_map = {"low": "低", "medium": "中等", "high": "较高"}
-    risk_level = risk_map.get(suggestion.get("risk_level", "medium"), "中等")
-
-    # 操作建议
-    action = suggestion.get("action", "观望")
-    buy_low = suggestion.get("buy_price", {}).get("low", 0)
-    buy_high = suggestion.get("buy_price", {}).get("high", 0)
-    stop_loss = suggestion.get("stop_loss", 0)
-    target1 = suggestion.get("take_profit", {}).get("target1", 0)
-    target2 = suggestion.get("take_profit", {}).get("target2", 0)
-    position = suggestion.get("position_ratio", "10-15%")
-    holding = suggestion.get("holding_days", "5-15个交易日")
-
-    # MACD 信号
-    macd_trend = indicators.get("macd", {}).get("trend", "")
-    macd_desc = ""
-    if "金叉" in macd_trend:
-        macd_desc = "MACD 出现金叉信号，短期看涨。"
-    elif "死叉" in macd_trend:
-        macd_desc = "MACD 出现死叉信号，注意风险。"
-
-    # RSI 状态
-    rsi_level = indicators.get("rsi", {}).get("level", "")
-    rsi_desc = ""
-    if rsi_level == "超买":
-        rsi_desc = "RSI 处于超买区间，短期可能回调。"
-    elif rsi_level == "超卖":
-        rsi_desc = "RSI 处于超卖区间，可能存在反弹机会。"
-
-    # 构建摘要
-    summary = f"""【{name}({code}) 交易指导】
-
-📊 当前行情：现价 ¥{price:.2f}，今日{trend}（{'+' if change >= 0 else ''}{change:.2f}%）
-
-⭐ 综合评分：{score}分（{score_desc}），{score_advice}。
-
-📈 技术信号：{macd_desc}{rsi_desc}
-
-💡 操作建议：{action}
-• 建议买入区间：¥{buy_low:.2f} - ¥{buy_high:.2f}
-• 止损价位：¥{stop_loss:.2f}（跌破即止损）
-• 止盈目标：第一目标 ¥{target1:.2f}，第二目标 ¥{target2:.2f}
-• 建议仓位：{position}
-• 持有周期：{holding}
-
-⚠️ 风险提示：当前风险等级为{risk_level}，请根据自身风险承受能力合理配置仓位。以上分析仅供参考，不构成投资建议，投资有风险，入市需谨慎。"""
-
-    return summary
 
 
 @router.get("/stock/{code}")
@@ -220,8 +133,8 @@ async def get_stock_analysis(code: str):
     if not reasons:
         reasons = ["数据正在分析中"]
 
-    # 生成交易指导摘要
-    summary = generate_trading_summary(
+    # 生成交易指导摘要（优先使用 AI，失败时用模板兜底）
+    summary = generate_summary_with_fallback(
         name=realtime["name"],
         code=code,
         price=realtime["price"],
