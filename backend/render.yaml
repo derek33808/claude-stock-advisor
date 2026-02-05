@@ -6,7 +6,7 @@ services:
     name: stock-advisor-api
     runtime: python
     plan: free
-    buildCommand: pip install -r requirements.txt
+    buildCommand: pip install --prefer-binary --no-cache-dir -r requirements.txt
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: SUPABASE_URL
@@ -22,7 +22,7 @@ services:
     runtime: python
     plan: free
     schedule: "30 9 * * 1-5"  # UTC 9:30 = 北京时间 17:30，周一到周五
-    buildCommand: pip install -r requirements.txt
+    buildCommand: pip install --prefer-binary --no-cache-dir -r requirements.txt
     startCommand: python -c "import asyncio; from app.api.recommendations import generate_recommendations; asyncio.run(generate_recommendations())"
     envVars:
       - key: SUPABASE_URL
