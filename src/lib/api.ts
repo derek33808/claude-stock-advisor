@@ -2,8 +2,8 @@
  * API 服务层 - 与后端通信
  */
 
-// 后端 API 基础 URL
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+// 后端 API 基础 URL (包含 /api/v1 前缀)
+const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000') + '/api/v1';
 
 /**
  * 股票分析结果
