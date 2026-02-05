@@ -18,6 +18,7 @@ class Settings(BaseSettings):
         "http://localhost:3000",
         "https://stock-advisor.netlify.app",
         "https://claude-stock-advisor.netlify.app",
+        "https://a-stock-advisor-cn.netlify.app",
     ]
 
     class Config:
