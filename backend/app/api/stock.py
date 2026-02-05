@@ -3,7 +3,7 @@
 """
 
 from fastapi import APIRouter, HTTPException
-from app.services import akshare_service, indicator_service, strategy_service
+from app.services import sina_service, indicator_service, strategy_service
 from app.models.schemas import StockAnalysis
 
 router = APIRouter()
@@ -19,7 +19,7 @@ async def get_stock_analysis(code: str):
     返回：基本信息、实时行情、技术指标、交易建议
     """
     # 获取历史数据
-    df = akshare_service.get_history(code, days=60)
+    df = sina_service.get_history(code, days=60)
     if df is None or df.empty:
         raise HTTPException(
             status_code=404,
@@ -27,7 +27,7 @@ async def get_stock_analysis(code: str):
         )
 
     # 获取实时行情
-    realtime = akshare_service.get_realtime(code)
+    realtime = sina_service.get_realtime(code)
     if realtime is None:
         raise HTTPException(
             status_code=404,
@@ -73,7 +73,7 @@ async def get_stock_kline(code: str, days: int = 60):
     - code: 股票代码
     - days: 天数（默认 60）
     """
-    df = akshare_service.get_history(code, days=days)
+    df = sina_service.get_history(code, days=days)
     if df is None or df.empty:
         raise HTTPException(
             status_code=404,
@@ -113,7 +113,7 @@ async def search_stocks(q: str, limit: int = 20):
             detail="请输入搜索关键词"
         )
 
-    results = akshare_service.search_stocks(q, limit=limit)
+    results = sina_service.search_stocks(q, limit=limit)
 
     return {
         "query": q,

@@ -7,6 +7,11 @@ import akshare as ak
 import pandas as pd
 from datetime import datetime, timedelta
 from typing import Optional
+import time
+
+# 重试配置
+MAX_RETRIES = 3
+RETRY_DELAY = 1  # 秒
 
 
 def get_stock_history(code: str, days: int = 60) -> Optional[pd.DataFrame]:

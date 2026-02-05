@@ -5,7 +5,7 @@
 
 import pandas as pd
 from typing import Optional
-from app.services import akshare_service, indicator_service
+from app.services import sina_service, indicator_service
 
 
 def filter_basic(stocks_df: pd.DataFrame) -> pd.DataFrame:
@@ -203,12 +203,12 @@ async def analyze_stock(code: str) -> Optional[dict]:
         dict with full analysis
     """
     # 获取历史数据
-    df = akshare_service.get_history(code, days=60)
+    df = sina_service.get_history(code, days=60)
     if df is None or df.empty:
         return None
 
     # 获取实时行情
-    realtime = akshare_service.get_realtime(code)
+    realtime = sina_service.get_realtime(code)
     if realtime is None:
         return None
 

@@ -4,7 +4,7 @@
 
 from fastapi import APIRouter, HTTPException
 from datetime import datetime
-from app.services import akshare_service, strategy_service
+from app.services import sina_service, strategy_service
 from app.db import supabase as db
 
 router = APIRouter()
@@ -18,7 +18,7 @@ async def get_today_recommendations():
     返回：市场概览 + 推荐股票列表
     """
     # 获取市场概览
-    market = akshare_service.get_market_indices()
+    market = sina_service.get_market_indices()
 
     # 获取最新推荐
     date, recommendations = await db.get_latest_recommendations()
@@ -136,7 +136,7 @@ async def generate_recommendations():
         await db.save_recommendations(today, recommendations)
 
         # 保存市场概览
-        market = akshare_service.get_market_indices()
+        market = sina_service.get_market_indices()
         await db.save_market_overview(today, market)
 
         return {
@@ -158,5 +158,5 @@ async def get_market_overview():
     """
     获取市场概览（大盘指数）
     """
-    market = akshare_service.get_market_indices()
+    market = sina_service.get_market_indices()
     return market

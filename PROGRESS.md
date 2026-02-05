@@ -1,8 +1,8 @@
 # A股智能交易策略系统 - 开发进度
 
-## 当前状态: 🔄 后端完成，部署测试中
+## 当前状态: 🚀 后端部署中
 
-**最后更新**: 2026-02-04 23:50
+**最后更新**: 2026-02-05 00:00
 
 ---
 
@@ -144,11 +144,18 @@ URL: https://hntogkygloioqyexevac.supabase.co
 Key: (从控制台获取 anon key)
 ```
 
-### Render (待部署)
+### Render (部署中)
 ```
 后端服务: stock-advisor-api
-URL: https://stock-advisor-api.onrender.com
+Service ID: srv-d61mj73uibrs73e38qmg
+URL: https://stock-advisor-api-6vtb.onrender.com
+状态: 构建中 (compiling pandas)
 ```
+
+**环境变量** (已配置):
+- `PORT` - 自动设置
+- `SUPABASE_URL` - ✅ 已设置
+- `SUPABASE_KEY` - ⚠️ 需要更新为实际 anon key
 
 ### Netlify (待部署)
 ```
@@ -191,4 +198,4 @@ URL: https://stock-advisor.netlify.app
 
 ---
 
-*最后更新: 2026-02-04 23:50*
+*最后更新: 2026-02-05 00:00*
