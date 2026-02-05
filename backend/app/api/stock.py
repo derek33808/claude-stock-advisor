@@ -2,22 +2,27 @@
 股票查询 API
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from app.services import eastmoney_service, indicator_service, strategy_service
 from app.services.glm_service import generate_summary_with_fallback
+from app.services.ai_analysis_service import get_full_ai_analysis, calculate_ai_ranking_score
 from app.models.schemas import StockAnalysis
 
 router = APIRouter()
 
 
 @router.get("/stock/{code}")
-async def get_stock_analysis(code: str):
+async def get_stock_analysis(
+    code: str,
+    ai_analysis: bool = Query(default=False, description="是否包含 AI 智能分析")
+):
     """
     获取股票完整分析
 
     - code: 股票代码（如 600519, 000001, 512930）
+    - ai_analysis: 是否包含 AI 智能分析（公司分析、基本面、AI评分）
 
-    返回：基本信息、实时行情、技术指标、交易建议
+    返回：基本信息、实时行情、技术指标、交易建议、AI分析（可选）
     """
     # 获取历史数据
     df = eastmoney_service.get_history(code, days=60)
@@ -145,7 +150,8 @@ async def get_stock_analysis(code: str):
         reasons=reasons,
     )
 
-    return {
+    # 基础响应
+    response = {
         "code": code,
         "name": realtime["name"],
         "industry": realtime.get("industry", ""),
@@ -163,6 +169,33 @@ async def get_stock_analysis(code: str):
         "score": score,
         "summary": summary,
     }
+
+    # 如果需要 AI 智能分析
+    if ai_analysis:
+        ai_result = get_full_ai_analysis(
+            name=realtime["name"],
+            code=code,
+            industry=realtime.get("industry", "未知"),
+            price=realtime["price"],
+            change=realtime["change"],
+            market_cap=realtime.get("market_cap", 0),
+            score=score,
+            indicators=indicators,
+            suggestion=suggestion,
+        )
+        response["ai_analysis"] = ai_result
+
+        # 计算 AI 排名分数
+        ai_ranking_score = calculate_ai_ranking_score(
+            technical_score=score,
+            ai_score=ai_result.get("ai_recommendation", {}).get("ai_score", score),
+            change=realtime["change"],
+            volume_status=vol.get("status", "正常"),
+            ma_trend=ma.get("trend", "震荡"),
+        )
+        response["ai_ranking_score"] = ai_ranking_score
+
+    return response
 
 
 @router.get("/stock/{code}/kline")
@@ -219,4 +252,148 @@ async def search_stocks(q: str, limit: int = 20):
         "query": q,
         "count": len(results),
         "results": results,
+    }
+
+
+@router.get("/stock/{code}/ai-analysis")
+async def get_stock_ai_analysis(code: str):
+    """
+    获取股票 AI 智能分析（独立接口，更详细的分析）
+
+    - code: 股票代码
+
+    返回：公司分析、基本面分析、AI评分、投资建议
+    """
+    # 获取历史数据
+    df = eastmoney_service.get_history(code, days=60)
+    if df is None or df.empty:
+        raise HTTPException(
+            status_code=404,
+            detail=f"无法获取股票 {code} 的数据"
+        )
+
+    # 获取实时行情
+    realtime = eastmoney_service.get_realtime(code)
+    if realtime is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"无法获取股票 {code} 的实时行情"
+        )
+
+    # 计算技术指标
+    indicators = indicator_service.calculate_indicators(df)
+    suggestion = indicator_service.calculate_trading_suggestion(df, indicators)
+    score = indicator_service.calculate_score(indicators, suggestion)
+
+    # 获取完整 AI 分析
+    ai_result = get_full_ai_analysis(
+        name=realtime["name"],
+        code=code,
+        industry=realtime.get("industry", "未知"),
+        price=realtime["price"],
+        change=realtime["change"],
+        market_cap=realtime.get("market_cap", 0),
+        score=score,
+        indicators=indicators,
+        suggestion=suggestion,
+    )
+
+    # 计算 AI 排名分数
+    vol = indicators.get("volume", {})
+    ma = indicators.get("ma", {})
+    ai_ranking_score = calculate_ai_ranking_score(
+        technical_score=score,
+        ai_score=ai_result.get("ai_recommendation", {}).get("ai_score", score),
+        change=realtime["change"],
+        volume_status=vol.get("status", "正常"),
+        ma_trend=ma.get("trend", "震荡"),
+    )
+
+    return {
+        "code": code,
+        "name": realtime["name"],
+        "industry": realtime.get("industry", ""),
+        "price": realtime["price"],
+        "change": realtime["change"],
+        "technical_score": score,
+        "ai_ranking_score": ai_ranking_score,
+        "company_analysis": ai_result.get("company", {}),
+        "fundamental_analysis": ai_result.get("fundamental", {}),
+        "ai_recommendation": ai_result.get("ai_recommendation", {}),
+        "analysis_time": ai_result.get("analysis_time", ""),
+    }
+
+
+@router.get("/rankings/ai")
+async def get_ai_rankings(limit: int = Query(default=10, le=20, description="返回数量")):
+    """
+    获取 AI 智能排名榜
+
+    返回根据 AI 综合评分排名的股票列表
+    """
+    # 使用预定义的热门股票进行排名
+    hot_stocks = [
+        "600519", "000858", "300750", "002594", "601318",
+        "600036", "000001", "002415", "300059", "601012",
+        "600276", "000651", "000333", "603288", "600030",
+    ]
+
+    rankings = []
+
+    for code in hot_stocks[:limit]:
+        try:
+            # 获取数据
+            df = eastmoney_service.get_history(code, days=60)
+            if df is None or df.empty:
+                continue
+
+            realtime = eastmoney_service.get_realtime(code)
+            if realtime is None:
+                continue
+
+            # 计算指标
+            indicators = indicator_service.calculate_indicators(df)
+            suggestion = indicator_service.calculate_trading_suggestion(df, indicators)
+            score = indicator_service.calculate_score(indicators, suggestion)
+
+            # 计算 AI 排名分数
+            vol = indicators.get("volume", {})
+            ma = indicators.get("ma", {})
+            macd = indicators.get("macd", {})
+
+            ai_ranking_score = calculate_ai_ranking_score(
+                technical_score=score,
+                ai_score=score,  # 简化版本使用技术评分
+                change=realtime["change"],
+                volume_status=vol.get("status", "正常"),
+                ma_trend=ma.get("trend", "震荡"),
+            )
+
+            rankings.append({
+                "code": code,
+                "name": realtime["name"],
+                "industry": realtime.get("industry", ""),
+                "price": realtime["price"],
+                "change": realtime["change"],
+                "technical_score": score,
+                "ai_ranking_score": ai_ranking_score,
+                "macd_signal": macd.get("signal", "未知"),
+                "ma_trend": ma.get("trend", "震荡"),
+                "suggestion": suggestion.get("action", "观望"),
+            })
+
+        except Exception as e:
+            print(f"Error processing {code}: {e}")
+            continue
+
+    # 按 AI 排名分数降序排序
+    rankings.sort(key=lambda x: x["ai_ranking_score"], reverse=True)
+
+    # 添加排名
+    for i, item in enumerate(rankings):
+        item["rank"] = i + 1
+
+    return {
+        "count": len(rankings),
+        "rankings": rankings,
     }

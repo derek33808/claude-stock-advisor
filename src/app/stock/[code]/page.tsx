@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { RecommendationData, StockRecommendation } from '@/lib/types';
+import { RecommendationData, StockRecommendation, AIAnalysis } from '@/lib/types';
 import Disclaimer from '@/components/Disclaimer';
 import { headers } from 'next/headers';
 
@@ -27,10 +27,14 @@ async function getRecommendations(): Promise<RecommendationData | null> {
   }
 }
 
-// 从后端 API 获取股票分析
-async function getStockFromAPI(code: string): Promise<StockRecommendation | null> {
+// 从后端 API 获取股票分析（包含 AI 分析）
+async function getStockFromAPI(code: string, includeAI: boolean = true): Promise<StockRecommendation | null> {
   try {
-    const res = await fetch(`${API_BASE_URL}/stock/${code}`, {
+    const url = includeAI
+      ? `${API_BASE_URL}/stock/${code}?ai_analysis=true`
+      : `${API_BASE_URL}/stock/${code}`;
+
+    const res = await fetch(url, {
       cache: 'no-store',
     });
     if (!res.ok) return null;
@@ -38,7 +42,7 @@ async function getStockFromAPI(code: string): Promise<StockRecommendation | null
     const analysis = await res.json();
 
     // 将 API 返回格式转换为 StockRecommendation 格式
-    return {
+    const result: StockRecommendation = {
       code: analysis.code,
       name: analysis.name,
       industry: analysis.industry || '未知',
@@ -60,6 +64,14 @@ async function getStockFromAPI(code: string): Promise<StockRecommendation | null
       riskLevel: analysis.suggestion.risk_level as 'low' | 'medium' | 'high',
       summary: analysis.summary,
     };
+
+    // 添加 AI 分析数据
+    if (analysis.ai_analysis) {
+      result.aiAnalysis = analysis.ai_analysis;
+      result.aiRankingScore = analysis.ai_ranking_score;
+    }
+
+    return result;
   } catch {
     return null;
   }
@@ -209,6 +221,169 @@ export default async function StockDetailPage({
           </p>
         </div>
       </section>
+
+      {/* AI 智能分析 */}
+      {stock.aiAnalysis && (
+        <>
+          {/* AI 评分卡片 */}
+          <section className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl shadow-sm border border-purple-100 p-4 mb-4">
+            <h2 className="text-lg font-semibold text-gray-800 mb-3 flex items-center">
+              <span className="mr-2">🤖</span>
+              AI 智能评分
+            </h2>
+            <div className="flex items-center justify-between mb-4">
+              <div className="text-center">
+                <div className="text-4xl font-bold text-purple-600">
+                  {stock.aiAnalysis.ai_recommendation.ai_score}
+                </div>
+                <div className="text-xs text-gray-500">AI 评分</div>
+              </div>
+              <div className="text-center">
+                <div className={`text-xl font-bold ${
+                  stock.aiAnalysis.ai_recommendation.ai_rating === '强烈推荐' ? 'text-green-600' :
+                  stock.aiAnalysis.ai_recommendation.ai_rating === '推荐' ? 'text-blue-600' :
+                  stock.aiAnalysis.ai_recommendation.ai_rating === '中性' ? 'text-yellow-600' :
+                  'text-red-600'
+                }`}>
+                  {stock.aiAnalysis.ai_recommendation.ai_rating}
+                </div>
+                <div className="text-xs text-gray-500">推荐等级</div>
+              </div>
+              <div className="text-center">
+                <div className="text-xl font-bold text-gray-700">
+                  {stock.aiAnalysis.ai_recommendation.confidence}
+                </div>
+                <div className="text-xs text-gray-500">置信度</div>
+              </div>
+            </div>
+
+            {/* 核心观点 */}
+            <div className="bg-white rounded-lg p-3 mb-3">
+              <h3 className="text-sm font-semibold text-gray-700 mb-2">💡 核心观点</h3>
+              <ul className="space-y-1">
+                {stock.aiAnalysis.ai_recommendation.key_points.map((point, i) => (
+                  <li key={i} className="text-sm text-gray-600 flex items-start">
+                    <span className="text-purple-500 mr-2">•</span>
+                    {point}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* AI 总结 */}
+            <div className="bg-white rounded-lg p-3">
+              <p className="text-sm text-gray-700 leading-relaxed">
+                {stock.aiAnalysis.ai_recommendation.ai_summary}
+              </p>
+            </div>
+          </section>
+
+          {/* 公司分析 */}
+          <section className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-4">
+            <h2 className="text-lg font-semibold text-gray-800 mb-3 flex items-center">
+              <span className="mr-2">🏢</span>
+              公司分析
+            </h2>
+
+            <div className="space-y-3">
+              <div className="bg-gray-50 rounded-lg p-3">
+                <h3 className="text-sm font-semibold text-gray-700 mb-1">公司简介</h3>
+                <p className="text-sm text-gray-600">{stock.aiAnalysis.company.company_profile}</p>
+              </div>
+
+              <div className="bg-gray-50 rounded-lg p-3">
+                <h3 className="text-sm font-semibold text-gray-700 mb-1">主营业务</h3>
+                <p className="text-sm text-gray-600">{stock.aiAnalysis.company.main_business}</p>
+              </div>
+
+              <div className="bg-gray-50 rounded-lg p-3">
+                <h3 className="text-sm font-semibold text-gray-700 mb-1">核心竞争优势</h3>
+                <p className="text-sm text-gray-600">{stock.aiAnalysis.company.competitive_advantage}</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-blue-50 rounded-lg p-3 text-center">
+                  <div className="text-lg font-bold text-blue-600">
+                    {stock.aiAnalysis.company.industry_position}
+                  </div>
+                  <div className="text-xs text-gray-500">行业地位</div>
+                </div>
+                <div className="bg-green-50 rounded-lg p-3 text-center">
+                  <div className="text-lg font-bold text-green-600">
+                    {stock.aiAnalysis.company.growth_potential}
+                  </div>
+                  <div className="text-xs text-gray-500">成长潜力</div>
+                </div>
+              </div>
+
+              {stock.aiAnalysis.company.risk_factors.length > 0 && (
+                <div className="bg-red-50 rounded-lg p-3">
+                  <h3 className="text-sm font-semibold text-red-700 mb-1">⚠️ 风险因素</h3>
+                  <ul className="space-y-1">
+                    {stock.aiAnalysis.company.risk_factors.map((risk, i) => (
+                      <li key={i} className="text-sm text-red-600">• {risk}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </section>
+
+          {/* 基本面分析 */}
+          <section className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-4">
+            <h2 className="text-lg font-semibold text-gray-800 mb-3 flex items-center">
+              <span className="mr-2">📊</span>
+              基本面分析
+            </h2>
+
+            <div className="grid grid-cols-2 gap-3 mb-3">
+              <div className={`rounded-lg p-3 text-center ${
+                stock.aiAnalysis.fundamental.valuation_level === '低估' ? 'bg-green-50' :
+                stock.aiAnalysis.fundamental.valuation_level === '高估' ? 'bg-red-50' :
+                'bg-yellow-50'
+              }`}>
+                <div className={`text-lg font-bold ${
+                  stock.aiAnalysis.fundamental.valuation_level === '低估' ? 'text-green-600' :
+                  stock.aiAnalysis.fundamental.valuation_level === '高估' ? 'text-red-600' :
+                  'text-yellow-600'
+                }`}>
+                  {stock.aiAnalysis.fundamental.valuation_level}
+                </div>
+                <div className="text-xs text-gray-500">估值水平</div>
+              </div>
+
+              <div className="bg-blue-50 rounded-lg p-3 text-center">
+                <div className="text-lg font-bold text-blue-600">
+                  {stock.aiAnalysis.fundamental.profitability}
+                </div>
+                <div className="text-xs text-gray-500">盈利能力</div>
+              </div>
+
+              <div className="bg-purple-50 rounded-lg p-3 text-center">
+                <div className="text-lg font-bold text-purple-600">
+                  {stock.aiAnalysis.fundamental.financial_health}
+                </div>
+                <div className="text-xs text-gray-500">财务健康</div>
+              </div>
+
+              <div className="bg-orange-50 rounded-lg p-3 text-center">
+                <div className="text-lg font-bold text-orange-600">
+                  {stock.aiAnalysis.fundamental.investment_value}/10
+                </div>
+                <div className="text-xs text-gray-500">投资价值</div>
+              </div>
+            </div>
+
+            <div className="bg-gray-50 rounded-lg p-3">
+              <p className="text-sm text-gray-600">{stock.aiAnalysis.fundamental.analysis_summary}</p>
+            </div>
+
+            <div className="text-xs text-gray-400 text-right mt-2">
+              分析时间: {stock.aiAnalysis.analysis_time}
+            </div>
+          </section>
+        </>
+      )}
 
       {/* 交易指导摘要 */}
       {stock.summary && (
