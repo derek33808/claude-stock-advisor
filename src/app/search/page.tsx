@@ -5,6 +5,7 @@ import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { getStockAnalysis, StockAnalysis, ApiError } from '@/lib/api';
 import Disclaimer from '@/components/Disclaimer';
+import WatchlistButton from '@/components/WatchlistButton';
 
 function SearchContent() {
   const searchParams = useSearchParams();
@@ -132,13 +133,18 @@ function StockAnalysisResult({ stock }: { stock: StockAnalysis }) {
   return (
     <>
       {/* 股票基本信息 */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-4">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-4 relative">
+        {/* 自选按钮 */}
+        <div className="absolute top-3 right-3">
+          <WatchlistButton code={stock.code} name={stock.name} size="md" />
+        </div>
+
         <div className="flex justify-between items-start">
           <div>
             <h1 className="text-2xl font-bold text-gray-800">{stock.name}</h1>
             <p className="text-sm text-gray-500">{stock.code} · {stock.industry || '未知行业'}</p>
           </div>
-          <div className="text-right">
+          <div className="text-right pr-10">
             <div className="text-3xl font-bold text-blue-600">{stock.score}</div>
             <div className="text-xs text-gray-400">综合评分</div>
           </div>

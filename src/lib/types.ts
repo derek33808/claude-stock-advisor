@@ -1,5 +1,12 @@
 // 股票推荐数据类型
 
+// 自选股数据
+export interface WatchlistItem {
+  code: string;      // 股票代码
+  name: string;      // 股票名称
+  addedAt: number;   // 添加时间戳
+}
+
 export interface StockRecommendation {
   code: string;           // 股票代码
   name: string;           // 股票名称

@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
+import { WatchlistProvider } from '@/lib/watchlist-context';
 
 export const metadata: Metadata = {
   title: 'Stock Advisor - A股交易策略指导',
@@ -19,7 +20,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="zh-CN">
-      <body className="min-h-screen">{children}</body>
+      <body className="min-h-screen">
+        <WatchlistProvider>{children}</WatchlistProvider>
+      </body>
     </html>
   );
 }

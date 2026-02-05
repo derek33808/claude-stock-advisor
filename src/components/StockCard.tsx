@@ -2,24 +2,35 @@
 
 import { StockRecommendation } from '@/lib/types';
 import Link from 'next/link';
+import WatchlistButton from './WatchlistButton';
 
 interface StockCardProps {
   stock: StockRecommendation;
-  rank: number;
+  rank?: number;
+  showWatchlistButton?: boolean;
 }
 
-export default function StockCard({ stock, rank }: StockCardProps) {
+export default function StockCard({ stock, rank, showWatchlistButton = true }: StockCardProps) {
   const isUp = stock.change >= 0;
 
   return (
     <Link href={`/stock/${stock.code}`}>
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 hover:shadow-md transition-shadow cursor-pointer">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 hover:shadow-md transition-shadow cursor-pointer relative">
+        {/* 自选按钮 */}
+        {showWatchlistButton && (
+          <div className="absolute top-3 right-3 z-10">
+            <WatchlistButton code={stock.code} name={stock.name} size="sm" />
+          </div>
+        )}
+
         {/* 头部：排名和评分 */}
         <div className="flex justify-between items-start mb-3">
           <div className="flex items-center gap-2">
-            <span className="bg-blue-500 text-white text-xs font-bold px-2 py-1 rounded">
-              #{rank}
-            </span>
+            {rank !== undefined && (
+              <span className="bg-blue-500 text-white text-xs font-bold px-2 py-1 rounded">
+                #{rank}
+              </span>
+            )}
             <span className={`text-xs px-2 py-1 rounded ${
               stock.riskLevel === 'low' ? 'bg-green-100 text-green-700' :
               stock.riskLevel === 'medium' ? 'bg-yellow-100 text-yellow-700' :
@@ -29,7 +40,7 @@ export default function StockCard({ stock, rank }: StockCardProps) {
                stock.riskLevel === 'medium' ? '中风险' : '高风险'}
             </span>
           </div>
-          <div className="text-right">
+          <div className="text-right pr-8">
             <div className="text-2xl font-bold text-blue-600">{stock.score}</div>
             <div className="text-xs text-gray-400">评分</div>
           </div>

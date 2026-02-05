@@ -1,7 +1,8 @@
-import StockCard from '@/components/StockCard';
 import MarketHeader from '@/components/MarketHeader';
 import SearchBox from '@/components/SearchBox';
 import Disclaimer from '@/components/Disclaimer';
+import RefreshButton from '@/components/RefreshButton';
+import HomeContent from '@/components/HomeContent';
 import { RecommendationData } from '@/lib/types';
 import { headers } from 'next/headers';
 
@@ -46,9 +47,12 @@ export default async function HomePage() {
   return (
     <main className="max-w-lg mx-auto px-4 py-6">
       {/* 页头 */}
-      <header className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Stock Advisor</h1>
-        <p className="text-sm text-gray-500">A股交易策略指导系统</p>
+      <header className="mb-6 flex justify-between items-start">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800">Stock Advisor</h1>
+          <p className="text-sm text-gray-500">A股交易策略指导系统</p>
+        </div>
+        <RefreshButton />
       </header>
 
       {/* 市场概览 */}
@@ -61,17 +65,8 @@ export default async function HomePage() {
       {/* 股票查询 */}
       <SearchBox />
 
-      {/* 今日推荐 */}
-      <section>
-        <h2 className="text-lg font-semibold text-gray-800 mb-3">
-          今日推荐 ({data.recommendations.length}支)
-        </h2>
-        <div className="space-y-4">
-          {data.recommendations.map((stock, index) => (
-            <StockCard key={stock.code} stock={stock} rank={index + 1} />
-          ))}
-        </div>
-      </section>
+      {/* 股票列表（推荐 + 自选） */}
+      <HomeContent recommendations={data.recommendations} />
 
       {/* 风险提示 */}
       <Disclaimer />
