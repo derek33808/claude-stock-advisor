@@ -3,12 +3,23 @@
 使用 ta 库计算各种技术指标
 """
 
+import math
 import pandas as pd
 import ta as ta_lib
 from ta.trend import MACD, SMAIndicator
 from ta.momentum import RSIIndicator, StochasticOscillator
 from ta.volatility import BollingerBands, AverageTrueRange
 from typing import Optional
+
+
+def safe_round(value, decimals=2):
+    """安全的四舍五入，处理 NaN 和 inf"""
+    if value is None or (isinstance(value, float) and (math.isnan(value) or math.isinf(value))):
+        return 0
+    try:
+        return round(float(value), decimals)
+    except (ValueError, TypeError):
+        return 0
 
 
 def calculate_indicators(df: pd.DataFrame) -> dict:
@@ -60,9 +71,9 @@ def calculate_indicators(df: pd.DataFrame) -> dict:
                 signal = "空头"
 
             result["macd"] = {
-                "dif": round(dif, 3),
-                "dea": round(dea, 3),
-                "hist": round(hist, 3),
+                "dif": safe_round(dif, 3),
+                "dea": safe_round(dea, 3),
+                "hist": safe_round(hist, 3),
                 "signal": signal,
             }
     except Exception as e:
@@ -94,8 +105,8 @@ def calculate_indicators(df: pd.DataFrame) -> dict:
             status = "健康"
 
         result["rsi"] = {
-            "rsi6": round(rsi6_val, 1),
-            "rsi12": round(rsi12_val, 1),
+            "rsi6": safe_round(rsi6_val, 1),
+            "rsi12": safe_round(rsi12_val, 1),
             "status": status,
         }
     except Exception as e:
@@ -132,10 +143,10 @@ def calculate_indicators(df: pd.DataFrame) -> dict:
             trend = "震荡"
 
         result["ma"] = {
-            "ma5": round(ma5_val, 2),
-            "ma10": round(ma10_val, 2),
-            "ma20": round(ma20_val, 2),
-            "ma60": round(ma60_val, 2),
+            "ma5": safe_round(ma5_val, 2),
+            "ma10": safe_round(ma10_val, 2),
+            "ma20": safe_round(ma20_val, 2),
+            "ma60": safe_round(ma60_val, 2),
             "trend": trend,
         }
     except Exception as e:
@@ -156,9 +167,9 @@ def calculate_indicators(df: pd.DataFrame) -> dict:
             j = 3 * k - 2 * d
 
             result["kdj"] = {
-                "k": round(k, 1),
-                "d": round(d, 1),
-                "j": round(j, 1),
+                "k": safe_round(k, 1),
+                "d": safe_round(d, 1),
+                "j": safe_round(j, 1),
             }
     except Exception as e:
         print(f"KDJ calculation error: {e}")
@@ -174,9 +185,9 @@ def calculate_indicators(df: pd.DataFrame) -> dict:
         lower = bbands.bollinger_lband().iloc[-1]
 
         result["boll"] = {
-            "upper": round(upper, 2),
-            "mid": round(mid, 2),
-            "lower": round(lower, 2),
+            "upper": safe_round(upper, 2),
+            "mid": safe_round(mid, 2),
+            "lower": safe_round(lower, 2),
         }
     except Exception as e:
         print(f"BOLL calculation error: {e}")
@@ -189,7 +200,7 @@ def calculate_indicators(df: pd.DataFrame) -> dict:
         atr_indicator = AverageTrueRange(df["high"], df["low"], df["close"], window=14)
         atr = atr_indicator.average_true_range()
         if atr is not None and not atr.empty:
-            result["atr"] = round(atr.iloc[-1], 2)
+            result["atr"] = safe_round(atr.iloc[-1], 2)
     except Exception as e:
         print(f"ATR calculation error: {e}")
         result["atr"] = 0
@@ -214,10 +225,10 @@ def calculate_indicators(df: pd.DataFrame) -> dict:
             vol_status = "正常"
 
         result["volume"] = {
-            "current": round(vol, 0),
-            "ma5": round(vol_ma5, 0),
-            "ma20": round(vol_ma20, 0),
-            "ratio": round(vol_ratio, 2),
+            "current": safe_round(vol, 0),
+            "ma5": safe_round(vol_ma5, 0),
+            "ma20": safe_round(vol_ma20, 0),
+            "ratio": safe_round(vol_ratio, 2),
             "status": vol_status,
         }
     except Exception as e:
@@ -299,11 +310,11 @@ def calculate_trading_suggestion(df: pd.DataFrame, indicators: dict) -> dict:
 
     return {
         "action": action,
-        "buy_price_low": round(buy_price_low, 2),
-        "buy_price_high": round(buy_price_high, 2),
-        "stop_loss": round(stop_loss, 2),
-        "take_profit_1": round(take_profit_1, 2),
-        "take_profit_2": round(take_profit_2, 2),
+        "buy_price_low": safe_round(buy_price_low, 2),
+        "buy_price_high": safe_round(buy_price_high, 2),
+        "stop_loss": safe_round(stop_loss, 2),
+        "take_profit_1": safe_round(take_profit_1, 2),
+        "take_profit_2": safe_round(take_profit_2, 2),
         "position": position,
         "holding_days": "5-15个交易日",
         "risk_level": risk_level,
