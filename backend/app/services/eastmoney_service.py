@@ -122,12 +122,15 @@ def get_stock_realtime(code: str) -> Optional[dict]:
 
             d = data['data']
 
-            # 价格在分，需要除以100
-            price = d.get('f43', 0) / 100 if d.get('f43') else 0
-            high = d.get('f44', 0) / 100 if d.get('f44') else 0
-            low = d.get('f45', 0) / 100 if d.get('f45') else 0
-            open_price = d.get('f46', 0) / 100 if d.get('f46') else 0
-            prev_close = d.get('f60', 0) / 100 if d.get('f60') else price
+            # ETF (5开头) 价格单位是厘(1/1000元)，普通股票是分(1/100元)
+            is_etf = code.startswith('5') or code.startswith('159')
+            price_divisor = 1000 if is_etf else 100
+
+            price = d.get('f43', 0) / price_divisor if d.get('f43') else 0
+            high = d.get('f44', 0) / price_divisor if d.get('f44') else 0
+            low = d.get('f45', 0) / price_divisor if d.get('f45') else 0
+            open_price = d.get('f46', 0) / price_divisor if d.get('f46') else 0
+            prev_close = d.get('f60', 0) / price_divisor if d.get('f60') else price
             volume = d.get('f47', 0)  # 手
             amount = d.get('f48', 0)  # 元
             change = d.get('f170', 0) / 100 if d.get('f170') else 0  # 涨跌幅百分比
