@@ -6,6 +6,9 @@ import { headers } from 'next/headers';
 // 强制动态渲染，不使用静态生成
 export const dynamic = 'force-dynamic';
 
+// 后端 API 基础 URL
+const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000') + '/api/v1';
+
 async function getRecommendations(): Promise<RecommendationData | null> {
   try {
     // 从请求头获取主机名，构建完整 URL
@@ -19,6 +22,43 @@ async function getRecommendations(): Promise<RecommendationData | null> {
     });
     if (!res.ok) return null;
     return res.json();
+  } catch {
+    return null;
+  }
+}
+
+// 从后端 API 获取股票分析
+async function getStockFromAPI(code: string): Promise<StockRecommendation | null> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/stock/${code}`, {
+      cache: 'no-store',
+    });
+    if (!res.ok) return null;
+
+    const analysis = await res.json();
+
+    // 将 API 返回格式转换为 StockRecommendation 格式
+    return {
+      code: analysis.code,
+      name: analysis.name,
+      industry: analysis.industry || '未知',
+      price: analysis.price,
+      change: analysis.change,
+      score: analysis.score,
+      buyPriceLow: analysis.suggestion.buy_price.low,
+      buyPriceHigh: analysis.suggestion.buy_price.high,
+      stopLoss: analysis.suggestion.stop_loss,
+      takeProfit1: analysis.suggestion.take_profit.target1,
+      takeProfit2: analysis.suggestion.take_profit.target2,
+      holdingDays: analysis.suggestion.holding_days,
+      positionRatio: analysis.suggestion.position_ratio,
+      reasons: {
+        technical: analysis.reasons.filter((r: string) => r.includes('技术') || r.includes('MACD') || r.includes('RSI') || r.includes('均线')),
+        fundamental: analysis.reasons.filter((r: string) => r.includes('基本') || r.includes('业绩') || r.includes('估值')),
+        capital: analysis.reasons.filter((r: string) => r.includes('资金') || r.includes('成交') || r.includes('量')),
+      },
+      riskLevel: analysis.suggestion.risk_level as 'low' | 'medium' | 'high',
+    };
   } catch {
     return null;
   }
@@ -38,12 +78,18 @@ export default async function StockDetailPage({
     stock = data.allStocks.find((s) => s.code === code);
   }
 
+  // 如果本地 JSON 中没找到，从后端 API 获取
+  if (!stock) {
+    stock = await getStockFromAPI(code);
+  }
+
   if (!stock) {
     return (
       <main className="max-w-lg mx-auto px-4 py-6">
         <Link href="/" className="text-blue-500 text-sm">← 返回首页</Link>
         <div className="text-center py-12">
           <h1 className="text-xl font-bold text-gray-800">股票未找到</h1>
+          <p className="text-sm text-gray-500 mt-2">请检查股票代码是否正确</p>
         </div>
       </main>
     );
