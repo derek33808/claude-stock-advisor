@@ -181,3 +181,30 @@ export async function getPerformanceStats(days: number = 30): Promise<{
 }> {
   return apiRequest(`/stats/performance?days=${days}`);
 }
+
+/**
+ * AI 排名项
+ */
+export interface AIRankingItem {
+  rank: number;
+  code: string;
+  name: string;
+  industry: string;
+  price: number;
+  change: number;
+  technical_score: number;
+  ai_ranking_score: number;
+  macd_signal: string;
+  ma_trend: string;
+  suggestion: string;
+}
+
+/**
+ * 获取 AI 智能排名
+ */
+export async function getAIRankings(limit: number = 10): Promise<{
+  count: number;
+  rankings: AIRankingItem[];
+}> {
+  return apiRequest(`/rankings/ai?limit=${limit}`);
+}
