@@ -6,7 +6,7 @@ python-multipart==0.0.6
 # Data processing
 pandas==2.2.0
 numpy==1.26.3
-git+https://github.com/twopirllc/pandas-ta.git
+https://github.com/twopirllc/pandas-ta/archive/refs/heads/development.tar.gz
 
 # Stock data
 akshare==1.12.70
