@@ -19,6 +19,7 @@ class Settings(BaseSettings):
         "https://stock-advisor.netlify.app",
         "https://claude-stock-advisor.netlify.app",
         "https://a-stock-advisor-cn.netlify.app",
+        "https://my-stock-advisor.netlify.app",
     ]
 
     class Config:
