@@ -1,10 +1,13 @@
 """
 技术指标计算服务
-使用 pandas-ta 计算各种技术指标
+使用 ta 库计算各种技术指标
 """
 
 import pandas as pd
-import pandas_ta as ta
+import ta as ta_lib
+from ta.trend import MACD, SMAIndicator
+from ta.momentum import RSIIndicator, StochasticOscillator
+from ta.volatility import BollingerBands, AverageTrueRange
 from typing import Optional
 
 
@@ -33,15 +36,19 @@ def calculate_indicators(df: pd.DataFrame) -> dict:
     # MACD (12, 26, 9)
     # ============================================
     try:
-        macd = ta.macd(df["close"], fast=12, slow=26, signal=9)
-        if macd is not None and not macd.empty:
-            dif = macd.iloc[-1, 0]  # MACD_12_26_9
-            dea = macd.iloc[-1, 2]  # MACDs_12_26_9
-            hist = macd.iloc[-1, 1]  # MACDh_12_26_9
+        macd_indicator = MACD(df["close"], window_slow=26, window_fast=12, window_sign=9)
+        macd_line = macd_indicator.macd()
+        signal_line = macd_indicator.macd_signal()
+        hist_line = macd_indicator.macd_diff()
+
+        if macd_line is not None and not macd_line.empty:
+            dif = macd_line.iloc[-1]
+            dea = signal_line.iloc[-1]
+            hist = hist_line.iloc[-1]
 
             # 判断金叉/死叉
-            prev_dif = macd.iloc[-2, 0] if len(macd) > 1 else dif
-            prev_dea = macd.iloc[-2, 2] if len(macd) > 1 else dea
+            prev_dif = macd_line.iloc[-2] if len(macd_line) > 1 else dif
+            prev_dea = signal_line.iloc[-2] if len(signal_line) > 1 else dea
 
             if prev_dif <= prev_dea and dif > dea:
                 signal = "金叉"
@@ -66,8 +73,10 @@ def calculate_indicators(df: pd.DataFrame) -> dict:
     # RSI (6, 12, 24)
     # ============================================
     try:
-        rsi6 = ta.rsi(df["close"], length=6)
-        rsi12 = ta.rsi(df["close"], length=12)
+        rsi6_indicator = RSIIndicator(df["close"], window=6)
+        rsi12_indicator = RSIIndicator(df["close"], window=12)
+        rsi6 = rsi6_indicator.rsi()
+        rsi12 = rsi12_indicator.rsi()
 
         rsi6_val = rsi6.iloc[-1] if rsi6 is not None and not rsi6.empty else 50
         rsi12_val = rsi12.iloc[-1] if rsi12 is not None and not rsi12.empty else 50
@@ -97,10 +106,10 @@ def calculate_indicators(df: pd.DataFrame) -> dict:
     # MA (5, 10, 20, 60)
     # ============================================
     try:
-        ma5 = ta.sma(df["close"], length=5)
-        ma10 = ta.sma(df["close"], length=10)
-        ma20 = ta.sma(df["close"], length=20)
-        ma60 = ta.sma(df["close"], length=60) if len(df) >= 60 else None
+        ma5 = SMAIndicator(df["close"], window=5).sma_indicator()
+        ma10 = SMAIndicator(df["close"], window=10).sma_indicator()
+        ma20 = SMAIndicator(df["close"], window=20).sma_indicator()
+        ma60 = SMAIndicator(df["close"], window=60).sma_indicator() if len(df) >= 60 else None
 
         ma5_val = ma5.iloc[-1] if ma5 is not None and not ma5.empty else 0
         ma10_val = ma10.iloc[-1] if ma10 is not None and not ma10.empty else 0
@@ -137,10 +146,13 @@ def calculate_indicators(df: pd.DataFrame) -> dict:
     # KDJ (9, 3, 3)
     # ============================================
     try:
-        stoch = ta.stoch(df["high"], df["low"], df["close"], k=9, d=3, smooth_k=3)
-        if stoch is not None and not stoch.empty:
-            k = stoch.iloc[-1, 0]  # STOCHk
-            d = stoch.iloc[-1, 1]  # STOCHd
+        stoch = StochasticOscillator(df["high"], df["low"], df["close"], window=9, smooth_window=3)
+        k_line = stoch.stoch()
+        d_line = stoch.stoch_signal()
+
+        if k_line is not None and not k_line.empty:
+            k = k_line.iloc[-1]
+            d = d_line.iloc[-1]
             j = 3 * k - 2 * d
 
             result["kdj"] = {
@@ -156,17 +168,16 @@ def calculate_indicators(df: pd.DataFrame) -> dict:
     # BOLL (20, 2)
     # ============================================
     try:
-        bbands = ta.bbands(df["close"], length=20, std=2)
-        if bbands is not None and not bbands.empty:
-            upper = bbands.iloc[-1, 0]  # BBU
-            mid = bbands.iloc[-1, 1]  # BBM
-            lower = bbands.iloc[-1, 2]  # BBL
+        bbands = BollingerBands(df["close"], window=20, window_dev=2)
+        upper = bbands.bollinger_hband().iloc[-1]
+        mid = bbands.bollinger_mavg().iloc[-1]
+        lower = bbands.bollinger_lband().iloc[-1]
 
-            result["boll"] = {
-                "upper": round(upper, 2),
-                "mid": round(mid, 2),
-                "lower": round(lower, 2),
-            }
+        result["boll"] = {
+            "upper": round(upper, 2),
+            "mid": round(mid, 2),
+            "lower": round(lower, 2),
+        }
     except Exception as e:
         print(f"BOLL calculation error: {e}")
         result["boll"] = {"upper": 0, "mid": 0, "lower": 0}
@@ -175,7 +186,8 @@ def calculate_indicators(df: pd.DataFrame) -> dict:
     # ATR (14)
     # ============================================
     try:
-        atr = ta.atr(df["high"], df["low"], df["close"], length=14)
+        atr_indicator = AverageTrueRange(df["high"], df["low"], df["close"], window=14)
+        atr = atr_indicator.average_true_range()
         if atr is not None and not atr.empty:
             result["atr"] = round(atr.iloc[-1], 2)
     except Exception as e:

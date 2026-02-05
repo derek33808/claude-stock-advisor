@@ -44,24 +44,28 @@ def macd_golden_cross(df: pd.DataFrame) -> bool:
     2. 或 MACD 柱由负转正
     """
     try:
-        import pandas_ta as ta
+        from ta.trend import MACD
 
-        macd = ta.macd(df["close"], fast=12, slow=26, signal=9)
-        if macd is None or len(macd) < 2:
+        macd_indicator = MACD(df["close"], window_slow=26, window_fast=12, window_sign=9)
+        macd_line = macd_indicator.macd()
+        signal_line = macd_indicator.macd_signal()
+        hist_line = macd_indicator.macd_diff()
+
+        if macd_line is None or len(macd_line) < 2:
             return False
 
-        dif = macd.iloc[-1, 0]
-        dea = macd.iloc[-1, 2]
-        prev_dif = macd.iloc[-2, 0]
-        prev_dea = macd.iloc[-2, 2]
+        dif = macd_line.iloc[-1]
+        dea = signal_line.iloc[-1]
+        prev_dif = macd_line.iloc[-2]
+        prev_dea = signal_line.iloc[-2]
 
         # 金叉
         if prev_dif <= prev_dea and dif > dea:
             return True
 
         # MACD 柱转正
-        hist = macd.iloc[-1, 1]
-        prev_hist = macd.iloc[-2, 1]
+        hist = hist_line.iloc[-1]
+        prev_hist = hist_line.iloc[-2]
         if prev_hist < 0 and hist > 0:
             return True
 
@@ -80,10 +84,10 @@ def rsi_oversold_bounce(df: pd.DataFrame) -> bool:
     3. RSI6 < 50
     """
     try:
-        import pandas_ta as ta
+        from ta.momentum import RSIIndicator
 
-        rsi6 = ta.rsi(df["close"], length=6)
-        rsi12 = ta.rsi(df["close"], length=12)
+        rsi6_indicator = RSIIndicator(df["close"], window=6)
+        rsi6 = rsi6_indicator.rsi()
 
         if rsi6 is None or len(rsi6) < 5:
             return False
@@ -115,11 +119,11 @@ def ma_bullish_alignment(df: pd.DataFrame) -> bool:
     3. MA5 向上倾斜
     """
     try:
-        import pandas_ta as ta
+        from ta.trend import SMAIndicator
 
-        ma5 = ta.sma(df["close"], length=5)
-        ma10 = ta.sma(df["close"], length=10)
-        ma20 = ta.sma(df["close"], length=20)
+        ma5 = SMAIndicator(df["close"], window=5).sma_indicator()
+        ma10 = SMAIndicator(df["close"], window=10).sma_indicator()
+        ma20 = SMAIndicator(df["close"], window=20).sma_indicator()
 
         if ma5 is None or ma10 is None or ma20 is None:
             return False
