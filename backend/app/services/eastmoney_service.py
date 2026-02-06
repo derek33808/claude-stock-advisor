@@ -343,10 +343,10 @@ def search_stocks(keyword: str, limit: int = 20) -> list[dict]:
     return results
 
 
-# 兼容接口 - 带自动 fallback 到新浪财经
+# 兼容接口 - 带自动 fallback 到 Yahoo Finance（全球可访问）
 def get_history(code: str, days: int = 60) -> Optional[pd.DataFrame]:
     """
-    智能获取历史数据，东方财富失败时自动切换到新浪财经
+    智能获取历史数据，东方财富失败时自动切换到 Yahoo Finance
     """
     global _eastmoney_available, _last_eastmoney_check
 
@@ -361,26 +361,26 @@ def get_history(code: str, days: int = 60) -> Optional[pd.DataFrame]:
         if result is not None and not result.empty:
             return result
         # 东方财富失败，标记为不可用
-        print(f"[Fallback] 东方财富获取历史数据失败 {code}，切换到新浪财经")
+        print(f"[Fallback] 东方财富获取历史数据失败 {code}，切换到 Yahoo Finance")
         _eastmoney_available = False
         _last_eastmoney_check = datetime.now()
 
-    # 尝试新浪财经
+    # 尝试 Yahoo Finance（全球可访问）
     try:
-        from app.services import sina_service
-        result = sina_service.get_stock_history(code, days)
+        from app.services import yahoo_service
+        result = yahoo_service.get_stock_history(code, days)
         if result is not None and not result.empty:
-            print(f"[Fallback] 使用新浪财经获取历史数据成功 {code}")
+            print(f"[Fallback] 使用 Yahoo Finance 获取历史数据成功 {code}")
             return result
     except Exception as e:
-        print(f"[Fallback] 新浪财经也失败了 {code}: {e}")
+        print(f"[Fallback] Yahoo Finance 也失败了 {code}: {e}")
 
     return None
 
 
 def get_realtime(code: str) -> Optional[dict]:
     """
-    智能获取实时行情，东方财富失败时自动切换到新浪财经
+    智能获取实时行情，东方财富失败时自动切换到 Yahoo Finance
     """
     global _eastmoney_available, _last_eastmoney_check
 
@@ -395,26 +395,26 @@ def get_realtime(code: str) -> Optional[dict]:
         if result is not None:
             return result
         # 东方财富失败
-        print(f"[Fallback] 东方财富获取实时行情失败 {code}，切换到新浪财经")
+        print(f"[Fallback] 东方财富获取实时行情失败 {code}，切换到 Yahoo Finance")
         _eastmoney_available = False
         _last_eastmoney_check = datetime.now()
 
-    # 尝试新浪财经
+    # 尝试 Yahoo Finance（全球可访问）
     try:
-        from app.services import sina_service
-        result = sina_service.get_stock_realtime(code)
+        from app.services import yahoo_service
+        result = yahoo_service.get_stock_realtime(code)
         if result is not None:
-            print(f"[Fallback] 使用新浪财经获取实时行情成功 {code}")
+            print(f"[Fallback] 使用 Yahoo Finance 获取实时行情成功 {code}")
             return result
     except Exception as e:
-        print(f"[Fallback] 新浪财经也失败了 {code}: {e}")
+        print(f"[Fallback] Yahoo Finance 也失败了 {code}: {e}")
 
     return None
 
 
 def get_market_indices_with_fallback() -> dict:
     """
-    获取大盘指数，东方财富失败时自动切换到新浪财经
+    获取大盘指数，东方财富失败时自动切换到 Yahoo Finance
     """
     global _eastmoney_available, _last_eastmoney_check
 
@@ -428,19 +428,19 @@ def get_market_indices_with_fallback() -> dict:
         result = get_market_indices()
         if result and result.get('sh_index', 0) > 0:
             return result
-        print("[Fallback] 东方财富获取大盘指数失败，切换到新浪财经")
+        print("[Fallback] 东方财富获取大盘指数失败，切换到 Yahoo Finance")
         _eastmoney_available = False
         _last_eastmoney_check = datetime.now()
 
-    # 尝试新浪财经
+    # 尝试 Yahoo Finance（全球可访问）
     try:
-        from app.services import sina_service
-        result = sina_service.get_market_indices()
+        from app.services import yahoo_service
+        result = yahoo_service.get_market_indices()
         if result and result.get('sh_index', 0) > 0:
-            print("[Fallback] 使用新浪财经获取大盘指数成功")
+            print("[Fallback] 使用 Yahoo Finance 获取大盘指数成功")
             return result
     except Exception as e:
-        print(f"[Fallback] 新浪财经获取大盘指数也失败了: {e}")
+        print(f"[Fallback] Yahoo Finance 获取大盘指数也失败了: {e}")
 
     return {
         'sh_index': 0,
