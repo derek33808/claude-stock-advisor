@@ -62,10 +62,26 @@ export default function StockDetailClient({ code }: StockDetailClientProps) {
               ? '后端服务冷启动中，可能需要 30-60 秒'
               : '首次加载可能需要 10-30 秒'}
           </p>
-          <div className="mt-4">
-            <div className="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
-              <div className="bg-blue-500 h-1.5 rounded-full animate-pulse" style={{ width: '60%' }}></div>
+          {/* 进度条 */}
+          <div className="mt-4 w-48 mx-auto">
+            <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+              <div
+                className="bg-gradient-to-r from-blue-400 to-blue-600 h-2 rounded-full animate-progress"
+                style={{
+                  animation: 'progress 2s ease-in-out infinite',
+                }}
+              ></div>
             </div>
+            <style jsx>{`
+              @keyframes progress {
+                0% { width: 0%; }
+                50% { width: 70%; }
+                100% { width: 100%; }
+              }
+              .animate-progress {
+                animation: progress 2s ease-in-out infinite;
+              }
+            `}</style>
           </div>
         </div>
       </main>

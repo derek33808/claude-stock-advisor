@@ -92,7 +92,25 @@ function SearchContent() {
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-3"></div>
           <p className="text-gray-500">正在分析股票数据，请稍候...</p>
-          <p className="text-xs text-gray-400 mt-1">首次查询可能需要几秒钟</p>
+          <p className="text-xs text-gray-400 mt-1">首次查询可能需要 10-30 秒</p>
+          {/* 进度条 */}
+          <div className="mt-4 w-48 mx-auto">
+            <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+              <div
+                className="bg-gradient-to-r from-blue-400 to-blue-600 h-2 rounded-full"
+                style={{
+                  animation: 'progress 2s ease-in-out infinite',
+                }}
+              ></div>
+            </div>
+            <style jsx>{`
+              @keyframes progress {
+                0% { width: 0%; }
+                50% { width: 70%; }
+                100% { width: 100%; }
+              }
+            `}</style>
+          </div>
         </div>
       )}
 
