@@ -207,30 +207,29 @@ def get_stock_realtime(code: str) -> Optional[dict]:
         quote = data.get('indicators', {}).get('quote', [{}])[0]
         timestamps = data.get('timestamp', [])
 
-        # 获取最新价格
+        # 获取收盘价数组
+        closes = [c for c in quote.get('close', []) if c is not None]
+
+        # 获取最新价格：优先用 meta，否则用收盘价数组最后一个
         price = meta.get('regularMarketPrice', 0)
-        # 优先使用 regularMarketPreviousClose（昨收），而非 chartPreviousClose（图表起点）
-        prev_close = meta.get('regularMarketPreviousClose') or meta.get('previousClose') or meta.get('chartPreviousClose', price)
-
-        # 如果 meta 没有价格，从 quote 获取最后一条
-        if not price and quote.get('close'):
-            closes = [c for c in quote['close'] if c is not None]
-            if closes:
-                price = closes[-1]
-                # 昨收应该是倒数第二天的收盘价
-                prev_close = closes[-2] if len(closes) > 1 else price
-
-        # 如果 prev_close 仍然不对（比如是图表起点），从 quote 获取
-        if quote.get('close'):
-            closes = [c for c in quote['close'] if c is not None]
-            if len(closes) >= 2:
-                # 倒数第二个有效的收盘价是昨收
-                prev_close = closes[-2]
+        if not price and closes:
+            price = closes[-1]
 
         if not price:
             return None
 
+        # 获取昨收价：必须用收盘价数组倒数第二个（Yahoo 中国股票不提供 regularMarketPreviousClose）
+        # chartPreviousClose 是图表起点（7天前），不是昨收！
+        if len(closes) >= 2:
+            prev_close = closes[-2]  # 正确的昨收
+            print(f"[Yahoo Debug] {code}: price={price}, prev_close={prev_close} (from closes[-2])")
+        else:
+            # 只有一天数据时才用 meta 字段（不太准确但没办法）
+            prev_close = meta.get('regularMarketPreviousClose') or meta.get('previousClose') or meta.get('chartPreviousClose', price)
+            print(f"[Yahoo Debug] {code}: price={price}, prev_close={prev_close} (from meta, closes count={len(closes)})")
+
         change = ((price - prev_close) / prev_close * 100) if prev_close else 0
+        print(f"[Yahoo Debug] {code}: calculated change={change:.2f}%")
 
         # 获取今日数据
         open_price = meta.get('regularMarketDayHigh', price)  # 如果没有，用现价代替
