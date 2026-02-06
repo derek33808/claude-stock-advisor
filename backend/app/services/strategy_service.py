@@ -243,7 +243,7 @@ async def analyze_stock(code: str) -> Optional[dict]:
     }
 
 
-async def generate_daily_recommendations(top_n: int = 5) -> list[dict]:
+async def generate_daily_recommendations(top_n: int = 10) -> list[dict]:
     """
     生成每日推荐
 

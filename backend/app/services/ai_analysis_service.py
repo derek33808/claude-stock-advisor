@@ -8,13 +8,18 @@ import urllib.request
 import urllib.error
 from typing import Optional, Dict, List, Tuple
 from datetime import datetime
+from app.config import get_settings
 
 
 # GLM API 配置
 GLM_API_URL = "https://open.bigmodel.cn/api/paas/v4/chat/completions"
-GLM_API_KEY = "7fa0e9aeab364d0fa11ab05d831fc0e7.6GMxW2I2ZmSgNmlw"
 GLM_MODEL = "glm-4-flash"
 GLM_TIMEOUT = 45
+
+def _get_glm_api_key() -> str:
+    """从环境变量获取 GLM API Key"""
+    settings = get_settings()
+    return settings.glm_api_key or ""
 
 
 # AI 模型状态跟踪
@@ -88,7 +93,7 @@ def call_glm_api(system_prompt: str, user_prompt: str, max_tokens: int = 800) ->
             data=json.dumps(data).encode('utf-8'),
             headers={
                 "Content-Type": "application/json",
-                "Authorization": f"Bearer {GLM_API_KEY}",
+                "Authorization": f"Bearer {_get_glm_api_key()}",
             },
             method="POST"
         )

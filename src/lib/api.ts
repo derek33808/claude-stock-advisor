@@ -15,9 +15,6 @@ const WAKE_CACHE_MS = 5 * 60 * 1000; // 5分钟内认为后端是醒的
 const stockCache = new Map<string, { data: StockAnalysis; timestamp: number }>();
 const STOCK_CACHE_MS = 3 * 60 * 1000; // 缓存 3 分钟
 
-// AI 排名缓存
-let aiRankingsCache: { data: { count: number; rankings: AIRankingItem[] }; timestamp: number } | null = null;
-const AI_RANKINGS_CACHE_MS = 5 * 60 * 1000; // 缓存 5 分钟
 
 /**
  * 唤醒后端服务（Render 免费版会休眠）

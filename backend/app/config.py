@@ -13,6 +13,9 @@ class Settings(BaseSettings):
     supabase_url: str = ""
     supabase_key: str = ""
 
+    # GLM AI API
+    glm_api_key: str = ""
+
     # CORS
     cors_origins: list[str] = [
         "http://localhost:3000",

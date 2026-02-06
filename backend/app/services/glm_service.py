@@ -9,13 +9,12 @@ import urllib.error
 import time
 from typing import Optional
 
-# 导入 AI 模型状态管理
-from app.services.ai_analysis_service import _ai_model_status
+# 导入 AI 模型状态管理和 API Key 获取函数
+from app.services.ai_analysis_service import _ai_model_status, _get_glm_api_key
 
 
 # GLM API 配置
 GLM_API_URL = "https://open.bigmodel.cn/api/paas/v4/chat/completions"
-GLM_API_KEY = "7fa0e9aeab364d0fa11ab05d831fc0e7.6GMxW2I2ZmSgNmlw"
 GLM_MODEL = "glm-4-flash"  # 使用 flash 版本，速度快成本低
 GLM_TIMEOUT = 30
 
@@ -108,7 +107,7 @@ def generate_ai_summary(
             data=json.dumps(data).encode('utf-8'),
             headers={
                 "Content-Type": "application/json",
-                "Authorization": f"Bearer {GLM_API_KEY}",
+                "Authorization": f"Bearer {_get_glm_api_key()}",
             },
             method="POST"
         )

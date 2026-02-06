@@ -123,7 +123,7 @@ async def generate_recommendations():
     """
     try:
         # 生成推荐
-        recommendations = await strategy_service.generate_daily_recommendations(top_n=5)
+        recommendations = await strategy_service.generate_daily_recommendations(top_n=10)
 
         if not recommendations:
             return {
