@@ -1,24 +1,21 @@
 'use client';
 
 import { useState } from 'react';
-import { generateRecommendations, getAIRankings } from '@/lib/api';
+import { generateRecommendations } from '@/lib/api';
 import ProgressBar from './ProgressBar';
 
 export default function RefreshAllButton() {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [message, setMessage] = useState('');
-  const [step, setStep] = useState<'recommendations' | 'ai' | 'done'>('recommendations');
 
   const handleRefresh = async () => {
     setLoading(true);
     setStatus('idle');
     setMessage('');
-    setStep('recommendations');
 
     try {
-      // 步骤1: 生成推荐
-      setStep('recommendations');
+      // 生成推荐（包含AI基本面分析）
       const result = await generateRecommendations();
 
       if (!result.success) {
@@ -28,18 +25,8 @@ export default function RefreshAllButton() {
         return;
       }
 
-      // 步骤2: 刷新 AI 排名（强制刷新缓存）
-      setStep('ai');
-      try {
-        await getAIRankings(10, true);
-      } catch {
-        // AI 排名失败不阻止整体刷新
-        console.log('AI rankings refresh failed, but continuing...');
-      }
-
-      setStep('done');
       setStatus('success');
-      setMessage(`成功刷新！生成 ${result.count || 5} 支推荐`);
+      setMessage(`成功刷新！生成 ${result.count || 5} 支智能推荐`);
 
       // 延迟刷新页面
       setTimeout(() => {
@@ -51,19 +38,6 @@ export default function RefreshAllButton() {
       setMessage(err instanceof Error ? err.message : '网络错误，请检查后端服务');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const getStepText = () => {
-    switch (step) {
-      case 'recommendations':
-        return '正在分析股票生成推荐...';
-      case 'ai':
-        return '正在刷新 AI 排名...';
-      case 'done':
-        return '刷新完成！';
-      default:
-        return '准备中...';
     }
   };
 
@@ -91,25 +65,21 @@ export default function RefreshAllButton() {
       {/* 加载中显示进度 */}
       {loading && (
         <div className="absolute top-full right-0 mt-2 w-72 bg-white rounded-lg shadow-lg border border-gray-100 p-4 z-20">
-          <div className="flex items-center gap-2 mb-2">
-            <span className={`w-2 h-2 rounded-full ${step === 'recommendations' ? 'bg-blue-500 animate-pulse' : 'bg-green-500'}`}></span>
-            <span className="text-xs text-gray-600">1. 生成推荐 (分析60只股票)</span>
-          </div>
-          <div className="flex items-center gap-2 mb-3">
-            <span className={`w-2 h-2 rounded-full ${step === 'ai' ? 'bg-purple-500 animate-pulse' : step === 'done' ? 'bg-green-500' : 'bg-gray-300'}`}></span>
-            <span className="text-xs text-gray-600">2. 刷新 AI 排名 (30只热门股)</span>
-          </div>
-
-          <p className="text-xs text-gray-700 font-medium mb-2">{getStepText()}</p>
+          <p className="text-sm text-gray-700 font-medium mb-3">
+            正在分析股票并生成智能推荐...
+          </p>
+          <p className="text-xs text-gray-500 mb-3">
+            包含技术面 + AI基本面分析
+          </p>
 
           <ProgressBar
-            estimatedSeconds={step === 'recommendations' ? 180 : 60}
+            estimatedSeconds={180}
             showPercent
-            color={step === 'recommendations' ? 'blue' : 'purple'}
+            color="blue"
           />
 
           <p className="text-xs text-gray-400 mt-2 text-center">
-            {step === 'recommendations' ? '预计 2-3 分钟' : '预计 30-60 秒'}
+            预计 2-3 分钟
           </p>
         </div>
       )}

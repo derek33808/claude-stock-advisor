@@ -26,7 +26,7 @@ _stock_cache_duration = timedelta(minutes=3)
 @router.get("/stock/{code}")
 async def get_stock_analysis(
     code: str,
-    ai_analysis: bool = Query(default=False, description="是否包含 AI 智能分析"),
+    ai_analysis: bool = Query(default=True, description="是否包含 AI 智能分析（默认开启）"),
     refresh: bool = Query(default=False, description="强制刷新缓存")
 ):
     """

@@ -1,13 +1,12 @@
 'use client';
 
-export type TabType = 'recommendations' | 'watchlist' | 'aiRankings';
+export type TabType = 'recommendations' | 'watchlist';
 
 interface TabSwitcherProps {
   activeTab: TabType;
   onTabChange: (tab: TabType) => void;
   recommendationsCount: number;
   watchlistCount: number;
-  aiRankingsCount?: number;
 }
 
 export default function TabSwitcher({
@@ -15,7 +14,6 @@ export default function TabSwitcher({
   onTabChange,
   recommendationsCount,
   watchlistCount,
-  aiRankingsCount,
 }: TabSwitcherProps) {
   return (
     <div className="flex bg-gray-100 rounded-lg p-1 mb-4">
@@ -29,19 +27,7 @@ export default function TabSwitcher({
           }
         `}
       >
-        今日推荐 ({recommendationsCount})
-      </button>
-      <button
-        onClick={() => onTabChange('aiRankings')}
-        className={`
-          flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all
-          ${activeTab === 'aiRankings'
-            ? 'bg-white text-purple-600 shadow-sm'
-            : 'text-gray-600 hover:text-gray-800'
-          }
-        `}
-      >
-        AI排名 {aiRankingsCount !== undefined ? `(${aiRankingsCount})` : ''}
+        智能推荐 ({recommendationsCount})
       </button>
       <button
         onClick={() => onTabChange('watchlist')}

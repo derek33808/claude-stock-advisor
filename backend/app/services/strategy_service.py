@@ -6,6 +6,7 @@
 import pandas as pd
 from typing import Optional
 from app.services import eastmoney_service, indicator_service
+from app.services.ai_analysis_service import get_full_ai_analysis
 
 
 def filter_basic(stocks_df: pd.DataFrame) -> pd.DataFrame:
@@ -274,6 +275,24 @@ async def generate_daily_recommendations(top_n: int = 5) -> list[dict]:
                 if analysis["score"] < 60:
                     continue
 
+                # 获取 AI 基本面分析
+                ai_analysis = None
+                try:
+                    ai_analysis = get_full_ai_analysis(
+                        name=analysis["name"],
+                        code=analysis["code"],
+                        industry=analysis["industry"],
+                        price=analysis["price"],
+                        change=analysis["change"],
+                        market_cap=0,  # 暂无市值数据
+                        score=analysis["score"],
+                        indicators=analysis.get("indicators", {}),
+                        suggestion=analysis["suggestion"],
+                    )
+                    print(f"[AI] 获取 {analysis['name']} AI分析成功")
+                except Exception as ai_err:
+                    print(f"[AI] 获取 {analysis['name']} AI分析失败: {ai_err}")
+
                 recommendations.append({
                     "code": analysis["code"],
                     "name": analysis["name"],
@@ -290,6 +309,7 @@ async def generate_daily_recommendations(top_n: int = 5) -> list[dict]:
                     "position_ratio": analysis["suggestion"]["position"],
                     "risk_level": analysis["suggestion"]["risk_level"],
                     "reasons": analysis["reasons"],
+                    "ai_analysis": ai_analysis,  # 新增: AI 基本面分析
                 })
 
                 # 找到足够数量就停止
