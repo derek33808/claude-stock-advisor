@@ -8,6 +8,7 @@ import StockCard from './StockCard';
 import TabSwitcher, { TabType } from './TabSwitcher';
 import WatchlistButton from './WatchlistButton';
 import Link from 'next/link';
+import ProgressBar from './ProgressBar';
 
 interface HomeContentProps {
   recommendations: StockRecommendation[];
@@ -292,8 +293,12 @@ export default function HomeContent({ recommendations }: HomeContentProps) {
                   ? '后端服务启动中，可能需要 30-90 秒'
                   : '分析多只股票可能需要 10-30 秒'}
               </p>
-              <div className="mt-3 w-48 mx-auto bg-gray-200 rounded-full h-1.5 overflow-hidden">
-                <div className="bg-purple-500 h-1.5 rounded-full animate-pulse" style={{ width: '60%' }}></div>
+              <div className="mt-3 w-48 mx-auto">
+                <ProgressBar
+                  estimatedSeconds={isBackendPossiblyAsleep() ? 60 : 20}
+                  showPercent
+                  color="purple"
+                />
               </div>
             </div>
           ) : rankingsError ? (
@@ -418,6 +423,9 @@ export default function HomeContent({ recommendations }: HomeContentProps) {
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 text-center">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-3"></div>
               <p className="text-gray-500">加载自选股数据...</p>
+              <div className="mt-3 w-48 mx-auto">
+                <ProgressBar estimatedSeconds={10} color="blue" />
+              </div>
             </div>
           ) : watchlistError ? (
             <div className="bg-white rounded-xl shadow-sm border border-red-100 p-6 text-center">

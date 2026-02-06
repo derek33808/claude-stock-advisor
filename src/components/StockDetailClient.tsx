@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { getStockAnalysis, StockAnalysis, wakeUpBackend, isBackendPossiblyAsleep } from '@/lib/api';
 import Disclaimer from './Disclaimer';
 import WatchlistButton from './WatchlistButton';
+import ProgressBar from './ProgressBar';
 
 interface StockDetailClientProps {
   code: string;
@@ -48,6 +49,7 @@ export default function StockDetailClient({ code }: StockDetailClientProps) {
 
   // 加载中状态
   if (loading) {
+    const isColdStart = isBackendPossiblyAsleep();
     return (
       <main className="max-w-lg mx-auto px-4 py-6">
         <Link href="/" className="inline-flex items-center text-blue-500 text-sm mb-4">
@@ -58,30 +60,17 @@ export default function StockDetailClient({ code }: StockDetailClientProps) {
           <h2 className="text-lg font-semibold text-gray-800 mb-2">{loadingMessage}</h2>
           <p className="text-sm text-gray-500">股票代码: {code}</p>
           <p className="text-xs text-gray-400 mt-2">
-            {isBackendPossiblyAsleep()
+            {isColdStart
               ? '后端服务冷启动中，可能需要 30-60 秒'
               : '首次加载可能需要 10-30 秒'}
           </p>
-          {/* 进度条 */}
+          {/* 真实进度条 */}
           <div className="mt-4 w-48 mx-auto">
-            <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
-              <div
-                className="bg-gradient-to-r from-blue-400 to-blue-600 h-2 rounded-full animate-progress"
-                style={{
-                  animation: 'progress 2s ease-in-out infinite',
-                }}
-              ></div>
-            </div>
-            <style jsx>{`
-              @keyframes progress {
-                0% { width: 0%; }
-                50% { width: 70%; }
-                100% { width: 100%; }
-              }
-              .animate-progress {
-                animation: progress 2s ease-in-out infinite;
-              }
-            `}</style>
+            <ProgressBar
+              estimatedSeconds={isColdStart ? 45 : 15}
+              showPercent
+              color="blue"
+            />
           </div>
         </div>
       </main>
