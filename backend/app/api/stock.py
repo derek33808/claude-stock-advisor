@@ -3,12 +3,20 @@
 """
 
 from fastapi import APIRouter, HTTPException, Query
+from datetime import datetime, timedelta
 from app.services import eastmoney_service, indicator_service, strategy_service
 from app.services.glm_service import generate_summary_with_fallback
 from app.services.ai_analysis_service import get_full_ai_analysis, calculate_ai_ranking_score
 from app.models.schemas import StockAnalysis
 
 router = APIRouter()
+
+# AI 排名缓存（内存缓存，有效期 30 分钟）
+_ai_rankings_cache = {
+    "data": None,
+    "updated_at": None,
+    "cache_duration": timedelta(minutes=30)
+}
 
 
 @router.get("/stock/{code}")
@@ -325,12 +333,33 @@ async def get_stock_ai_analysis(code: str):
 
 
 @router.get("/rankings/ai")
-async def get_ai_rankings(limit: int = Query(default=10, le=20, description="返回数量")):
+async def get_ai_rankings(
+    limit: int = Query(default=10, le=20, description="返回数量"),
+    refresh: bool = Query(default=False, description="强制刷新缓存")
+):
     """
     获取 AI 智能排名榜
 
     返回根据 AI 综合评分排名的股票列表
+    - 数据缓存 30 分钟，避免重复计算
+    - 设置 refresh=true 可强制刷新
     """
+    global _ai_rankings_cache
+
+    # 检查缓存是否有效
+    if not refresh and _ai_rankings_cache["data"] is not None:
+        if _ai_rankings_cache["updated_at"] is not None:
+            cache_age = datetime.now() - _ai_rankings_cache["updated_at"]
+            if cache_age < _ai_rankings_cache["cache_duration"]:
+                # 返回缓存数据
+                cached_rankings = _ai_rankings_cache["data"][:limit]
+                return {
+                    "count": len(cached_rankings),
+                    "rankings": cached_rankings,
+                    "cached": True,
+                    "cache_time": _ai_rankings_cache["updated_at"].strftime("%H:%M:%S"),
+                }
+
     # 使用预定义的热门股票进行排名
     hot_stocks = [
         "600519", "000858", "300750", "002594", "601318",
@@ -340,7 +369,7 @@ async def get_ai_rankings(limit: int = Query(default=10, le=20, description="返
 
     rankings = []
 
-    for code in hot_stocks[:limit]:
+    for code in hot_stocks:
         try:
             # 获取数据
             df = eastmoney_service.get_history(code, days=60)
@@ -402,7 +431,13 @@ async def get_ai_rankings(limit: int = Query(default=10, le=20, description="返
     for i, item in enumerate(rankings):
         item["rank"] = i + 1
 
+    # 更新缓存
+    _ai_rankings_cache["data"] = rankings
+    _ai_rankings_cache["updated_at"] = datetime.now()
+
     return {
-        "count": len(rankings),
-        "rankings": rankings,
+        "count": len(rankings[:limit]),
+        "rankings": rankings[:limit],
+        "cached": False,
+        "cache_time": _ai_rankings_cache["updated_at"].strftime("%H:%M:%S"),
     }
