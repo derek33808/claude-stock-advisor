@@ -166,6 +166,7 @@ export async function getMarketOverview(): Promise<MarketOverview> {
 
 /**
  * 手动触发生成推荐
+ * 注意：此操作需要分析多只股票，可能需要3-5分钟
  */
 export async function generateRecommendations(): Promise<{
   success: boolean;
@@ -174,7 +175,8 @@ export async function generateRecommendations(): Promise<{
   recommendations?: StockAnalysis[];
   message?: string;
 }> {
-  return apiRequest('/recommendations/generate', { method: 'POST' });
+  // 使用 5 分钟超时，因为需要分析 60 只股票
+  return apiRequest('/recommendations/generate', { method: 'POST' }, 300000);
 }
 
 /**

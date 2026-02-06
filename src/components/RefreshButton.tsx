@@ -57,7 +57,7 @@ export default function RefreshButton({ onRefreshComplete }: RefreshButtonProps)
         <span className={`${loading ? 'animate-spin' : ''}`}>
           {loading ? '⟳' : '↻'}
         </span>
-        <span>{loading ? '生成中...' : '刷新推荐'}</span>
+        <span>{loading ? '分析中(约3分钟)...' : '刷新推荐'}</span>
       </button>
 
       {/* 状态提示 */}
