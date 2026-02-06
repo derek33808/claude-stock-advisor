@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useWatchlist } from '@/lib/watchlist-context';
 import { StockRecommendation } from '@/lib/types';
-import { getStockAnalysis, getAIRankings, prefetchStocks, StockAnalysis, AIRankingItem } from '@/lib/api';
+import { getStockAnalysis, getAIRankings, prefetchStocks, StockAnalysis, AIRankingItem, wakeUpBackend, isBackendPossiblyAsleep } from '@/lib/api';
 import StockCard from './StockCard';
 import TabSwitcher, { TabType } from './TabSwitcher';
 import WatchlistButton from './WatchlistButton';
@@ -235,10 +235,19 @@ export default function HomeContent({ recommendations }: HomeContentProps) {
     setRankingsError(null);
 
     try {
+      // 如果后端可能休眠，先唤醒
+      if (isBackendPossiblyAsleep()) {
+        await wakeUpBackend();
+      }
       const response = await getAIRankings(10);
       setAIRankings(response.rankings);
-    } catch {
-      setRankingsError('加载 AI 排名失败，请检查网络');
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : '加载失败';
+      if (errorMsg.includes('冷启动') || errorMsg.includes('超时')) {
+        setRankingsError('后端服务正在启动中，请稍后重试');
+      } else {
+        setRankingsError('加载 AI 排名失败，请检查网络');
+      }
     } finally {
       setLoadingRankings(false);
     }
@@ -271,15 +280,25 @@ export default function HomeContent({ recommendations }: HomeContentProps) {
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 text-center">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500 mx-auto mb-3"></div>
               <p className="text-gray-500">AI 正在分析热门股票...</p>
-              <p className="text-xs text-gray-400 mt-1">首次加载可能需要较长时间</p>
+              <p className="text-xs text-gray-400 mt-1">
+                {isBackendPossiblyAsleep()
+                  ? '后端服务启动中，可能需要 30-90 秒'
+                  : '分析多只股票可能需要 10-30 秒'}
+              </p>
+              <div className="mt-3 w-48 mx-auto bg-gray-200 rounded-full h-1.5 overflow-hidden">
+                <div className="bg-purple-500 h-1.5 rounded-full animate-pulse" style={{ width: '60%' }}></div>
+              </div>
             </div>
           ) : rankingsError ? (
             <div className="bg-white rounded-xl shadow-sm border border-red-100 p-6 text-center">
-              <div className="text-red-400 text-4xl mb-3">⚠️</div>
-              <p className="text-sm text-gray-500">{rankingsError}</p>
+              <div className="text-4xl mb-3">⏳</div>
+              <p className="text-sm font-medium text-gray-700 mb-1">
+                {rankingsError.includes('启动') ? '后端服务正在启动' : '加载失败'}
+              </p>
+              <p className="text-xs text-gray-500 mb-3">{rankingsError}</p>
               <button
                 onClick={loadAIRankings}
-                className="mt-3 text-purple-500 text-sm hover:underline"
+                className="px-4 py-2 bg-purple-500 text-white rounded-lg text-sm hover:bg-purple-600"
               >
                 重新加载
               </button>

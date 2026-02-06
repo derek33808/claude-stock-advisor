@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { getStockAnalysis, StockAnalysis } from '@/lib/api';
+import { getStockAnalysis, StockAnalysis, wakeUpBackend, isBackendPossiblyAsleep } from '@/lib/api';
 import Disclaimer from './Disclaimer';
 import WatchlistButton from './WatchlistButton';
 
@@ -14,23 +14,37 @@ export default function StockDetailClient({ code }: StockDetailClientProps) {
   const [stock, setStock] = useState<StockAnalysis | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [loadingMessage, setLoadingMessage] = useState('加载股票数据中...');
+  const [retryCount, setRetryCount] = useState(0);
+
+  const fetchStock = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // 检查后端是否可能休眠
+      if (isBackendPossiblyAsleep()) {
+        setLoadingMessage('正在唤醒后端服务...');
+        await wakeUpBackend();
+      }
+
+      setLoadingMessage('正在获取股票数据...');
+      const data = await getStockAnalysis(code);
+      setStock(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '加载失败');
+    } finally {
+      setLoading(false);
+    }
+  }, [code]);
 
   useEffect(() => {
-    const fetchStock = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const data = await getStockAnalysis(code);
-        setStock(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : '加载失败');
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchStock();
-  }, [code]);
+  }, [fetchStock, retryCount]);
+
+  const handleRetry = () => {
+    setRetryCount(c => c + 1);
+  };
 
   // 加载中状态
   if (loading) {
@@ -41,9 +55,18 @@ export default function StockDetailClient({ code }: StockDetailClientProps) {
         </Link>
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <h2 className="text-lg font-semibold text-gray-800 mb-2">加载股票数据中...</h2>
+          <h2 className="text-lg font-semibold text-gray-800 mb-2">{loadingMessage}</h2>
           <p className="text-sm text-gray-500">股票代码: {code}</p>
-          <p className="text-xs text-gray-400 mt-2">首次加载可能需要 10-30 秒</p>
+          <p className="text-xs text-gray-400 mt-2">
+            {isBackendPossiblyAsleep()
+              ? '后端服务冷启动中，可能需要 30-60 秒'
+              : '首次加载可能需要 10-30 秒'}
+          </p>
+          <div className="mt-4">
+            <div className="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
+              <div className="bg-blue-500 h-1.5 rounded-full animate-pulse" style={{ width: '60%' }}></div>
+            </div>
+          </div>
         </div>
       </main>
     );
@@ -51,27 +74,36 @@ export default function StockDetailClient({ code }: StockDetailClientProps) {
 
   // 错误状态
   if (error || !stock) {
+    const isColdStartError = error?.includes('冷启动') || error?.includes('超时');
     return (
       <main className="max-w-lg mx-auto px-4 py-6">
         <Link href="/" className="text-blue-500 text-sm">← 返回首页</Link>
         <div className="text-center py-12">
-          <div className="text-4xl mb-4">📊</div>
-          <h1 className="text-xl font-bold text-gray-800">暂时无法获取数据</h1>
-          <p className="text-sm text-gray-500 mt-2">可能的原因：</p>
-          <ul className="text-sm text-gray-500 mt-2 space-y-1">
-            <li>• 后端服务正在启动中（请稍等30秒后刷新）</li>
-            <li>• 股票代码 {code} 可能不正确</li>
-            <li>• 网络连接问题</li>
-          </ul>
+          <div className="text-4xl mb-4">{isColdStartError ? '⏳' : '📊'}</div>
+          <h1 className="text-xl font-bold text-gray-800">
+            {isColdStartError ? '后端服务正在启动' : '暂时无法获取数据'}
+          </h1>
+          <p className="text-sm text-gray-500 mt-2">
+            {isColdStartError
+              ? '免费服务器休眠后需要约60秒启动，请点击重试'
+              : '可能的原因：'}
+          </p>
+          {!isColdStartError && (
+            <ul className="text-sm text-gray-500 mt-2 space-y-1">
+              <li>• 后端服务正在启动中</li>
+              <li>• 股票代码 {code} 可能不正确</li>
+              <li>• 网络连接问题</li>
+            </ul>
+          )}
           {error && (
-            <p className="text-xs text-red-500 mt-4">{error}</p>
+            <p className="text-xs text-red-500 mt-4 max-w-xs mx-auto">{error}</p>
           )}
           <div className="mt-6 space-x-4">
             <button
-              onClick={() => window.location.reload()}
+              onClick={handleRetry}
               className="inline-block px-4 py-2 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600"
             >
-              刷新重试
+              {isColdStartError ? '重新加载' : '刷新重试'}
             </button>
             <Link
               href="/"

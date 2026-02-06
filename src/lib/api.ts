@@ -4,6 +4,49 @@
 
 // 后端 API 基础 URL (包含 /api/v1 前缀)
 const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000') + '/api/v1';
+const HEALTH_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000') + '/health';
+
+// 后端状态缓存
+let backendAwake = false;
+let lastWakeTime = 0;
+const WAKE_CACHE_MS = 5 * 60 * 1000; // 5分钟内认为后端是醒的
+
+/**
+ * 唤醒后端服务（Render 免费版会休眠）
+ */
+export async function wakeUpBackend(): Promise<boolean> {
+  // 如果最近唤醒过，跳过
+  if (backendAwake && Date.now() - lastWakeTime < WAKE_CACHE_MS) {
+    return true;
+  }
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 90000); // 90秒超时等待冷启动
+
+    const response = await fetch(HEALTH_URL, {
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (response.ok) {
+      backendAwake = true;
+      lastWakeTime = Date.now();
+      return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * 检查后端是否可能在休眠
+ */
+export function isBackendPossiblyAsleep(): boolean {
+  return !backendAwake || Date.now() - lastWakeTime > WAKE_CACHE_MS;
+}
 
 /**
  * 股票分析结果
@@ -87,43 +130,74 @@ export class ApiError extends Error {
 }
 
 /**
- * 通用 API 请求函数（含超时处理）
+ * 带重试的 API 请求函数
  */
-async function apiRequest<T>(endpoint: string, options?: RequestInit, timeoutMs: number = 60000): Promise<T> {
+async function apiRequest<T>(
+  endpoint: string,
+  options?: RequestInit,
+  timeoutMs: number = 60000,
+  maxRetries: number = 2
+): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
 
-  // 创建超时控制器
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  let lastError: Error | null = null;
 
-  try {
-    const response = await fetch(url, {
-      ...options,
-      signal: controller.signal,
-      headers: {
-        'Content-Type': 'application/json',
-        ...options?.headers,
-      },
-    });
-
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: '请求失败' }));
-      throw new ApiError(error.detail || '请求失败', response.status);
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    // 首次请求前，如果后端可能休眠，先尝试唤醒
+    if (attempt === 0 && isBackendPossiblyAsleep()) {
+      await wakeUpBackend();
     }
 
-    return response.json();
-  } catch (error) {
-    clearTimeout(timeoutId);
-    if (error instanceof ApiError) {
-      throw error;
+    // 创建超时控制器
+    const controller = new AbortController();
+    const currentTimeout = attempt === 0 ? timeoutMs : timeoutMs * 1.5; // 重试时增加超时
+    const timeoutId = setTimeout(() => controller.abort(), currentTimeout);
+
+    try {
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal,
+        headers: {
+          'Content-Type': 'application/json',
+          ...options?.headers,
+        },
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: '请求失败' }));
+        throw new ApiError(error.detail || '请求失败', response.status);
+      }
+
+      // 请求成功，更新后端状态
+      backendAwake = true;
+      lastWakeTime = Date.now();
+
+      return response.json();
+    } catch (error) {
+      clearTimeout(timeoutId);
+
+      if (error instanceof ApiError) {
+        throw error; // API 错误不重试
+      }
+
+      lastError = error as Error;
+
+      // 如果是超时或网络错误，且还有重试次数，继续重试
+      if (attempt < maxRetries) {
+        // 等待一段时间再重试（指数退避）
+        await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+        continue;
+      }
     }
-    if (error instanceof Error && error.name === 'AbortError') {
-      throw new ApiError('请求超时，后端服务可能正在启动中，请稍后重试', 408);
-    }
-    throw new ApiError('网络错误，请检查后端服务是否运行', 0);
   }
+
+  // 所有重试都失败了
+  if (lastError instanceof Error && lastError.name === 'AbortError') {
+    throw new ApiError('请求超时，后端服务可能正在冷启动中（约需60秒），请稍后重试', 408);
+  }
+  throw new ApiError('网络错误，后端服务可能暂时不可用，请稍后重试', 0);
 }
 
 /**
@@ -224,12 +298,14 @@ export interface AIRankingItem {
 
 /**
  * 获取 AI 智能排名
+ * 注意：此操作需要分析多只股票，可能需要较长时间
  */
 export async function getAIRankings(limit: number = 10): Promise<{
   count: number;
   rankings: AIRankingItem[];
 }> {
-  return apiRequest(`/rankings/ai?limit=${limit}`);
+  // AI排名需要更长超时（2分钟）和更多重试
+  return apiRequest(`/rankings/ai?limit=${limit}`, undefined, 120000, 3);
 }
 
 /**
