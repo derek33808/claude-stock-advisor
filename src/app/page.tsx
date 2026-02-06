@@ -60,15 +60,9 @@ async function getRecommendationsFromAPI(): Promise<RecommendationData | null> {
         holdingDays: (r.suggestion as Record<string, string>)?.holding_days || '5-15个交易日',
         positionRatio: (r.suggestion as Record<string, string>)?.position_ratio || '10-15%',
         reasons: {
-          technical: (r.reasons as string[] || []).filter((reason: string) =>
-            reason.includes('技术') || reason.includes('MACD') || reason.includes('RSI') || reason.includes('均线')
-          ),
-          fundamental: (r.reasons as string[] || []).filter((reason: string) =>
-            reason.includes('基本') || reason.includes('业绩') || reason.includes('估值')
-          ),
-          capital: (r.reasons as string[] || []).filter((reason: string) =>
-            reason.includes('资金') || reason.includes('成交') || reason.includes('量')
-          ),
+          technical: (r.reasons as Record<string, string[]>)?.technical || [],
+          fundamental: (r.reasons as Record<string, string[]>)?.fundamental || [],
+          capital: (r.reasons as Record<string, string[]>)?.capital || [],
         },
         riskLevel: (r.suggestion as Record<string, string>)?.risk_level || 'medium',
       })),
