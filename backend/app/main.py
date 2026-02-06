@@ -45,34 +45,62 @@ async def health_check():
 
 @app.get("/debug/stock/{code}")
 async def debug_stock(code: str):
-    """Debug endpoint to test stock data retrieval"""
-    from app.services import eastmoney_service, indicator_service
+    """Debug endpoint to test stock data retrieval from all sources"""
+    from app.services import eastmoney_service, yahoo_service, indicator_service
     import traceback
 
     result = {
         "code": code,
-        "history": None,
-        "realtime": None,
+        "eastmoney": {"history": None, "realtime": None, "error": None},
+        "yahoo": {"history": None, "realtime": None, "error": None},
+        "combined": {"history": None, "realtime": None},
         "indicators": None,
-        "error": None
     }
 
+    # Test EastMoney directly
     try:
-        # Test history
+        df_em = eastmoney_service.get_stock_history(code, days=60)
+        result["eastmoney"]["history"] = {
+            "success": df_em is not None and not df_em.empty,
+            "rows": len(df_em) if df_em is not None else 0
+        }
+        rt_em = eastmoney_service.get_stock_realtime(code)
+        result["eastmoney"]["realtime"] = {
+            "success": rt_em is not None,
+            "price": rt_em.get("price") if rt_em else None
+        }
+    except Exception as e:
+        result["eastmoney"]["error"] = str(e)
+
+    # Test Yahoo directly
+    try:
+        df_yh = yahoo_service.get_stock_history(code, days=60)
+        result["yahoo"]["history"] = {
+            "success": df_yh is not None and not df_yh.empty,
+            "rows": len(df_yh) if df_yh is not None else 0
+        }
+        rt_yh = yahoo_service.get_stock_realtime(code)
+        result["yahoo"]["realtime"] = {
+            "success": rt_yh is not None,
+            "price": rt_yh.get("price") if rt_yh else None
+        }
+    except Exception as e:
+        result["yahoo"]["error"] = str(e)
+
+    # Test combined (with fallback)
+    try:
         df = eastmoney_service.get_history(code, days=60)
-        result["history"] = {
+        result["combined"]["history"] = {
             "success": df is not None and not df.empty,
             "rows": len(df) if df is not None else 0
         }
-
-        # Test realtime
         rt = eastmoney_service.get_realtime(code)
-        result["realtime"] = {
+        result["combined"]["realtime"] = {
             "success": rt is not None,
             "price": rt.get("price") if rt else None
         }
 
-        # Test indicators
+        # Test indicators if we have history
         if df is not None and not df.empty:
             indicators = indicator_service.calculate_indicators(df)
             result["indicators"] = {
@@ -80,10 +108,6 @@ async def debug_stock(code: str):
                 "keys": list(indicators.keys()) if indicators else []
             }
     except Exception as e:
-        result["error"] = {
-            "type": type(e).__name__,
-            "message": str(e),
-            "traceback": traceback.format_exc()
-        }
+        result["combined"]["error"] = str(e)
 
     return result
