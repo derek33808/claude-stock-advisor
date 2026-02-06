@@ -44,27 +44,19 @@ async function getRecommendationsFromAPI(): Promise<RecommendationData | null> {
         price: r.price,
         change: r.change,
         score: r.score,
-        buyPriceLow: (r.suggestion as Record<string, unknown>)?.buy_price
-          ? ((r.suggestion as Record<string, Record<string, number>>).buy_price.low || 0)
-          : 0,
-        buyPriceHigh: (r.suggestion as Record<string, unknown>)?.buy_price
-          ? ((r.suggestion as Record<string, Record<string, number>>).buy_price.high || 0)
-          : 0,
-        stopLoss: (r.suggestion as Record<string, number>)?.stop_loss || 0,
-        takeProfit1: (r.suggestion as Record<string, unknown>)?.take_profit
-          ? ((r.suggestion as Record<string, Record<string, number>>).take_profit.target1 || 0)
-          : 0,
-        takeProfit2: (r.suggestion as Record<string, unknown>)?.take_profit
-          ? ((r.suggestion as Record<string, Record<string, number>>).take_profit.target2 || 0)
-          : 0,
-        holdingDays: (r.suggestion as Record<string, string>)?.holding_days || '5-15个交易日',
-        positionRatio: (r.suggestion as Record<string, string>)?.position_ratio || '10-15%',
+        buyPriceLow: (r.buy_price_low as number) || 0,
+        buyPriceHigh: (r.buy_price_high as number) || 0,
+        stopLoss: (r.stop_loss as number) || 0,
+        takeProfit1: (r.take_profit_1 as number) || 0,
+        takeProfit2: (r.take_profit_2 as number) || 0,
+        holdingDays: (r.holding_days as string) || '5-15个交易日',
+        positionRatio: (r.position_ratio as string) || '10-15%',
         reasons: {
           technical: (r.reasons as Record<string, string[]>)?.technical || [],
           fundamental: (r.reasons as Record<string, string[]>)?.fundamental || [],
           capital: (r.reasons as Record<string, string[]>)?.capital || [],
         },
-        riskLevel: (r.suggestion as Record<string, string>)?.risk_level || 'medium',
+        riskLevel: (r.risk_level as string) || 'medium',
       })),
       allStocks: [], // 后端 API 不返回此字段，使用空数组
     };
