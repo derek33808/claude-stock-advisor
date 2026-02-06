@@ -126,14 +126,26 @@ export interface SearchResult {
 }
 
 /**
+ * AI 模型状态
+ */
+export interface AIModelStatus {
+  available: boolean;
+  error_code: 'unavailable' | 'quota_exhausted' | 'auth_failed' | 'rate_limited' | 'timeout' | 'unknown' | null;
+  error_message: string | null;
+  last_error_time: string | null;
+}
+
+/**
  * API 错误
  */
 export class ApiError extends Error {
   status: number;
+  aiModelStatus?: AIModelStatus;
 
-  constructor(message: string, status: number) {
+  constructor(message: string, status: number, aiModelStatus?: AIModelStatus) {
     super(message);
     this.status = status;
+    this.aiModelStatus = aiModelStatus;
   }
 }
 
@@ -318,15 +330,38 @@ export interface AIRankingItem {
 }
 
 /**
+ * AI 排名响应（包含模型状态）
+ */
+export interface AIRankingsResponse {
+  count: number;
+  rankings: AIRankingItem[];
+  ai_model_status?: AIModelStatus;
+  cached?: boolean;
+  cache_time?: string;
+}
+
+/**
  * 获取 AI 智能排名
  * 注意：此操作需要分析多只股票，可能需要较长时间
  */
-export async function getAIRankings(limit: number = 10): Promise<{
-  count: number;
-  rankings: AIRankingItem[];
-}> {
+export async function getAIRankings(limit: number = 10): Promise<AIRankingsResponse> {
   // AI排名需要更长超时（2分钟）和更多重试
   return apiRequest(`/rankings/ai?limit=${limit}`, undefined, 120000, 3);
+}
+
+/**
+ * 获取 AI 模型状态
+ */
+export async function getAIModelStatus(): Promise<{
+  ai_model: AIModelStatus;
+  timestamp: string;
+}> {
+  const healthUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000') + '/ai/status';
+  const response = await fetch(healthUrl, { cache: 'no-store' });
+  if (!response.ok) {
+    throw new Error('无法获取 AI 模型状态');
+  }
+  return response.json();
 }
 
 /**

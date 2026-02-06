@@ -43,6 +43,17 @@ async def health_check():
     return {"status": "healthy"}
 
 
+@app.get("/ai/status")
+async def get_ai_status():
+    """检查 AI 模型服务状态"""
+    from app.services.ai_analysis_service import get_ai_model_status
+    status = get_ai_model_status()
+    return {
+        "ai_model": status,
+        "timestamp": __import__("datetime").datetime.now().isoformat()
+    }
+
+
 @app.get("/debug/stock/{code}")
 async def debug_stock(code: str):
     """Debug endpoint to test stock data retrieval from all sources"""

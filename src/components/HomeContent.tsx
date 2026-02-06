@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useWatchlist } from '@/lib/watchlist-context';
 import { StockRecommendation } from '@/lib/types';
-import { getStockAnalysis, getAIRankings, prefetchStocks, StockAnalysis, AIRankingItem, wakeUpBackend, isBackendPossiblyAsleep } from '@/lib/api';
+import { getStockAnalysis, getAIRankings, prefetchStocks, StockAnalysis, AIRankingItem, AIModelStatus, AIRankingsResponse, wakeUpBackend, isBackendPossiblyAsleep } from '@/lib/api';
 import StockCard from './StockCard';
 import TabSwitcher, { TabType } from './TabSwitcher';
 import WatchlistButton from './WatchlistButton';
@@ -159,6 +159,7 @@ export default function HomeContent({ recommendations }: HomeContentProps) {
   const [aiRankings, setAIRankings] = useState<AIRankingItem[]>([]);
   const [loadingRankings, setLoadingRankings] = useState(false);
   const [rankingsError, setRankingsError] = useState<string | null>(null);
+  const [aiModelStatus, setAIModelStatus] = useState<AIModelStatus | null>(null);
 
   // 预加载状态（避免重复请求）
   const prefetchedRef = useRef(false);
@@ -233,6 +234,7 @@ export default function HomeContent({ recommendations }: HomeContentProps) {
   const loadAIRankings = async () => {
     setLoadingRankings(true);
     setRankingsError(null);
+    setAIModelStatus(null);
 
     try {
       // 如果后端可能休眠，先唤醒
@@ -241,6 +243,11 @@ export default function HomeContent({ recommendations }: HomeContentProps) {
       }
       const response = await getAIRankings(10);
       setAIRankings(response.rankings);
+
+      // 更新 AI 模型状态
+      if (response.ai_model_status) {
+        setAIModelStatus(response.ai_model_status);
+      }
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : '加载失败';
       if (errorMsg.includes('冷启动') || errorMsg.includes('超时')) {
@@ -322,6 +329,53 @@ export default function HomeContent({ recommendations }: HomeContentProps) {
                   🤖 AI 智能排名：综合技术面、资金面、趋势分析，为您精选高潜力股票
                 </p>
               </div>
+
+              {/* AI 模型状态告警 */}
+              {aiModelStatus && !aiModelStatus.available && (
+                <div className={`rounded-lg p-4 mb-4 ${
+                  aiModelStatus.error_code === 'quota_exhausted'
+                    ? 'bg-orange-50 border border-orange-200'
+                    : aiModelStatus.error_code === 'auth_failed'
+                    ? 'bg-red-50 border border-red-200'
+                    : 'bg-yellow-50 border border-yellow-200'
+                }`}>
+                  <div className="flex items-start gap-3">
+                    <div className="text-2xl">
+                      {aiModelStatus.error_code === 'quota_exhausted' ? '💳' :
+                       aiModelStatus.error_code === 'auth_failed' ? '🔐' :
+                       aiModelStatus.error_code === 'unavailable' ? '🔌' :
+                       aiModelStatus.error_code === 'rate_limited' ? '⏱️' : '⚠️'}
+                    </div>
+                    <div className="flex-1">
+                      <h4 className={`font-semibold text-sm ${
+                        aiModelStatus.error_code === 'quota_exhausted'
+                          ? 'text-orange-800'
+                          : aiModelStatus.error_code === 'auth_failed'
+                          ? 'text-red-800'
+                          : 'text-yellow-800'
+                      }`}>
+                        {aiModelStatus.error_code === 'quota_exhausted' ? 'AI 配额已用尽' :
+                         aiModelStatus.error_code === 'auth_failed' ? 'AI 认证失败' :
+                         aiModelStatus.error_code === 'unavailable' ? 'AI 模型暂时不可用' :
+                         aiModelStatus.error_code === 'rate_limited' ? '请求过于频繁' :
+                         aiModelStatus.error_code === 'timeout' ? 'AI 模型响应超时' : 'AI 模型异常'}
+                      </h4>
+                      <p className={`text-xs mt-1 ${
+                        aiModelStatus.error_code === 'quota_exhausted'
+                          ? 'text-orange-600'
+                          : aiModelStatus.error_code === 'auth_failed'
+                          ? 'text-red-600'
+                          : 'text-yellow-600'
+                      }`}>
+                        {aiModelStatus.error_message || '当前使用基础技术分析，AI 智能分析暂时不可用'}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-2">
+                        ℹ️ 排名数据基于技术指标计算，AI 增强分析将在服务恢复后自动启用
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* 排名列表 */}
               {aiRankings.map((item) => (

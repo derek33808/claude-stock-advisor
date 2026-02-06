@@ -5,8 +5,12 @@
 
 import json
 import urllib.request
+import urllib.error
 import time
 from typing import Optional
+
+# 导入 AI 模型状态管理
+from app.services.ai_analysis_service import _ai_model_status
 
 
 # GLM API 配置
@@ -116,8 +120,34 @@ def generate_ai_summary(
         if result.get("choices") and len(result["choices"]) > 0:
             content = result["choices"][0].get("message", {}).get("content", "")
             if content:
+                _ai_model_status.clear_error()
                 return content.strip()
 
+        return None
+
+    except urllib.error.HTTPError as e:
+        error_body = ""
+        try:
+            error_body = e.read().decode('utf-8')
+        except:
+            pass
+
+        print(f"GLM API HTTP 错误 {e.code}: {error_body}")
+
+        if e.code == 401:
+            _ai_model_status.set_error("auth_failed", "API 认证失败，请检查 API Key")
+        elif e.code == 429:
+            if "quota" in error_body.lower() or "余额" in error_body:
+                _ai_model_status.set_error("quota_exhausted", "API 配额已用尽，请充值或等待重置")
+            else:
+                _ai_model_status.set_error("rate_limited", "请求过于频繁，请稍后重试")
+        elif e.code >= 500:
+            _ai_model_status.set_error("unavailable", f"AI 模型服务暂时不可用 (HTTP {e.code})")
+        return None
+
+    except urllib.error.URLError as e:
+        print(f"GLM API 网络错误: {e}")
+        _ai_model_status.set_error("unavailable", "无法连接到 AI 模型服务")
         return None
 
     except Exception as e:

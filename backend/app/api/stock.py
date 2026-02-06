@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException, Query
 from datetime import datetime, timedelta
 from app.services import eastmoney_service, indicator_service, strategy_service
 from app.services.glm_service import generate_summary_with_fallback
-from app.services.ai_analysis_service import get_full_ai_analysis, calculate_ai_ranking_score
+from app.services.ai_analysis_service import get_full_ai_analysis, calculate_ai_ranking_score, get_ai_model_status
 from app.models.schemas import StockAnalysis
 
 router = APIRouter()
@@ -491,9 +491,13 @@ async def get_ai_rankings(
     _ai_rankings_cache["data"] = rankings
     _ai_rankings_cache["updated_at"] = datetime.now()
 
+    # 获取 AI 模型状态
+    ai_status = get_ai_model_status()
+
     return {
         "count": len(rankings[:limit]),
         "rankings": rankings[:limit],
         "cached": False,
         "cache_time": _ai_rankings_cache["updated_at"].strftime("%H:%M:%S"),
+        "ai_model_status": ai_status,
     }

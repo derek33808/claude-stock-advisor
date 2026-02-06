@@ -5,7 +5,8 @@ AI 智能分析服务
 
 import json
 import urllib.request
-from typing import Optional, Dict, List
+import urllib.error
+from typing import Optional, Dict, List, Tuple
 from datetime import datetime
 
 
@@ -16,7 +17,46 @@ GLM_MODEL = "glm-4-flash"
 GLM_TIMEOUT = 45
 
 
-def call_glm_api(system_prompt: str, user_prompt: str, max_tokens: int = 800) -> Optional[str]:
+# AI 模型状态跟踪
+class AIModelStatus:
+    """AI 模型状态管理"""
+    def __init__(self):
+        self.available = True
+        self.last_error = None
+        self.last_error_time = None
+        self.error_code = None  # 'unavailable', 'quota_exhausted', 'auth_failed'
+        self.error_message = None
+
+    def set_error(self, code: str, message: str):
+        self.available = False
+        self.error_code = code
+        self.error_message = message
+        self.last_error_time = datetime.now()
+
+    def clear_error(self):
+        self.available = True
+        self.error_code = None
+        self.error_message = None
+
+    def get_status(self) -> Dict:
+        return {
+            "available": self.available,
+            "error_code": self.error_code,
+            "error_message": self.error_message,
+            "last_error_time": self.last_error_time.isoformat() if self.last_error_time else None
+        }
+
+
+# 全局 AI 模型状态
+_ai_model_status = AIModelStatus()
+
+
+def get_ai_model_status() -> Dict:
+    """获取 AI 模型状态"""
+    return _ai_model_status.get_status()
+
+
+def call_glm_api(system_prompt: str, user_prompt: str, max_tokens: int = 800) -> Tuple[Optional[str], Optional[str]]:
     """
     调用 GLM API
 
@@ -26,8 +66,12 @@ def call_glm_api(system_prompt: str, user_prompt: str, max_tokens: int = 800) ->
         max_tokens: 最大生成 token 数
 
     Returns:
-        生成的文本，失败返回 None
+        Tuple of (content, error_type)
+        - content: 生成的文本，失败返回 None
+        - error_type: 错误类型 ('unavailable', 'quota_exhausted', 'auth_failed', None)
     """
+    global _ai_model_status
+
     try:
         data = {
             "model": GLM_MODEL,
@@ -55,13 +99,55 @@ def call_glm_api(system_prompt: str, user_prompt: str, max_tokens: int = 800) ->
         if result.get("choices") and len(result["choices"]) > 0:
             content = result["choices"][0].get("message", {}).get("content", "")
             if content:
-                return content.strip()
+                # 成功调用，清除错误状态
+                _ai_model_status.clear_error()
+                return content.strip(), None
 
-        return None
+        return None, None
+
+    except urllib.error.HTTPError as e:
+        error_body = ""
+        try:
+            error_body = e.read().decode('utf-8')
+            error_json = json.loads(error_body)
+            error_msg = error_json.get("error", {}).get("message", str(e))
+        except:
+            error_msg = str(e)
+
+        print(f"GLM API HTTP 错误 {e.code}: {error_msg}")
+
+        if e.code == 401:
+            _ai_model_status.set_error("auth_failed", "API 认证失败，请检查 API Key")
+            return None, "auth_failed"
+        elif e.code == 429:
+            # 解析具体的配额错误
+            if "quota" in error_body.lower() or "余额" in error_body:
+                _ai_model_status.set_error("quota_exhausted", "API 配额已用尽，请充值或等待重置")
+                return None, "quota_exhausted"
+            else:
+                _ai_model_status.set_error("rate_limited", "请求过于频繁，请稍后重试")
+                return None, "rate_limited"
+        elif e.code >= 500:
+            _ai_model_status.set_error("unavailable", f"AI 模型服务暂时不可用 (HTTP {e.code})")
+            return None, "unavailable"
+        else:
+            _ai_model_status.set_error("api_error", f"API 错误: {error_msg}")
+            return None, "api_error"
+
+    except urllib.error.URLError as e:
+        print(f"GLM API 网络错误: {e}")
+        _ai_model_status.set_error("unavailable", "无法连接到 AI 模型服务，请检查网络")
+        return None, "unavailable"
+
+    except TimeoutError:
+        print("GLM API 超时")
+        _ai_model_status.set_error("timeout", "AI 模型响应超时，请稍后重试")
+        return None, "timeout"
 
     except Exception as e:
         print(f"GLM API 调用失败: {e}")
-        return None
+        _ai_model_status.set_error("unknown", f"未知错误: {str(e)}")
+        return None, "unknown"
 
 
 def generate_company_analysis(
@@ -112,18 +198,18 @@ def generate_company_analysis(
 
 只返回 JSON，不要其他内容。"""
 
-    result = call_glm_api(system_prompt, user_prompt, 600)
+    content, error_type = call_glm_api(system_prompt, user_prompt, 600)
 
-    if result:
+    if content:
         try:
             # 尝试解析 JSON
             # 处理可能的 markdown 代码块
-            if "```json" in result:
-                result = result.split("```json")[1].split("```")[0]
-            elif "```" in result:
-                result = result.split("```")[1].split("```")[0]
+            if "```json" in content:
+                content = content.split("```json")[1].split("```")[0]
+            elif "```" in content:
+                content = content.split("```")[1].split("```")[0]
 
-            return json.loads(result.strip())
+            return json.loads(content.strip())
         except json.JSONDecodeError:
             pass
 
@@ -200,16 +286,16 @@ def generate_fundamental_analysis(
 
 只返回 JSON，不要其他内容。"""
 
-    result = call_glm_api(system_prompt, user_prompt, 500)
+    content, error_type = call_glm_api(system_prompt, user_prompt, 500)
 
-    if result:
+    if content:
         try:
-            if "```json" in result:
-                result = result.split("```json")[1].split("```")[0]
-            elif "```" in result:
-                result = result.split("```")[1].split("```")[0]
+            if "```json" in content:
+                content = content.split("```json")[1].split("```")[0]
+            elif "```" in content:
+                content = content.split("```")[1].split("```")[0]
 
-            return json.loads(result.strip())
+            return json.loads(content.strip())
         except json.JSONDecodeError:
             pass
 
@@ -299,16 +385,16 @@ def generate_ai_score_and_recommendation(
 
 只返回 JSON，不要其他内容。"""
 
-    result = call_glm_api(system_prompt, user_prompt, 500)
+    content, error_type = call_glm_api(system_prompt, user_prompt, 500)
 
-    if result:
+    if content:
         try:
-            if "```json" in result:
-                result = result.split("```json")[1].split("```")[0]
-            elif "```" in result:
-                result = result.split("```")[1].split("```")[0]
+            if "```json" in content:
+                content = content.split("```json")[1].split("```")[0]
+            elif "```" in content:
+                content = content.split("```")[1].split("```")[0]
 
-            parsed = json.loads(result.strip())
+            parsed = json.loads(content.strip())
             # 确保 ai_score 在合理范围
             if "ai_score" in parsed:
                 parsed["ai_score"] = max(0, min(100, int(parsed["ai_score"])))
