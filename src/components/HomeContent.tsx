@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useWatchlist } from '@/lib/watchlist-context';
 import { StockRecommendation } from '@/lib/types';
-import { getStockAnalysis, getAIRankings, StockAnalysis, AIRankingItem } from '@/lib/api';
+import { getStockAnalysis, getAIRankings, prefetchStocks, StockAnalysis, AIRankingItem } from '@/lib/api';
 import StockCard from './StockCard';
 import TabSwitcher, { TabType } from './TabSwitcher';
 import WatchlistButton from './WatchlistButton';
@@ -159,6 +159,21 @@ export default function HomeContent({ recommendations }: HomeContentProps) {
   const [aiRankings, setAIRankings] = useState<AIRankingItem[]>([]);
   const [loadingRankings, setLoadingRankings] = useState(false);
   const [rankingsError, setRankingsError] = useState<string | null>(null);
+
+  // 预加载状态（避免重复请求）
+  const prefetchedRef = useRef(false);
+
+  // 首次加载时预加载推荐股票详情（后台执行，不阻塞UI）
+  useEffect(() => {
+    if (prefetchedRef.current || recommendations.length === 0) return;
+    prefetchedRef.current = true;
+
+    // 后台预加载，不等待结果
+    const codes = recommendations.map(r => r.code);
+    prefetchStocks(codes).catch(() => {
+      // 预加载失败不影响用户体验，静默处理
+    });
+  }, [recommendations]);
 
   // 当切换到自选股 tab 或自选列表变化时，加载自选股数据
   useEffect(() => {

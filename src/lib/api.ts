@@ -230,3 +230,18 @@ export async function getAIRankings(limit: number = 10): Promise<{
 }> {
   return apiRequest(`/rankings/ai?limit=${limit}`);
 }
+
+/**
+ * 批量预加载股票数据
+ * 用于预热缓存，后续访问详情页会更快
+ */
+export async function prefetchStocks(codes: string[]): Promise<{
+  total: number;
+  cached: number;
+  failed: number;
+}> {
+  return apiRequest('/stocks/prefetch', {
+    method: 'POST',
+    body: JSON.stringify(codes),
+  });
+}
