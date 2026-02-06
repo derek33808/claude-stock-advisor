@@ -18,9 +18,9 @@ _ai_rankings_cache = {
     "cache_duration": timedelta(minutes=30)
 }
 
-# 单股票分析缓存（内存缓存，有效期 30 分钟）
+# 单股票分析缓存（内存缓存，有效期 3 分钟 - 盘中数据变化快）
 _stock_analysis_cache: dict = {}
-_stock_cache_duration = timedelta(minutes=30)
+_stock_cache_duration = timedelta(minutes=3)
 
 
 @router.get("/stock/{code}")
@@ -37,7 +37,7 @@ async def get_stock_analysis(
     - refresh: 强制刷新缓存
 
     返回：基本信息、实时行情、技术指标、交易建议、AI分析（可选）
-    数据缓存 30 分钟
+    数据缓存 3 分钟（盘中数据变化快）
     """
     global _stock_analysis_cache
 
