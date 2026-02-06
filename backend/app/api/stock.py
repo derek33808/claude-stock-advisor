@@ -190,6 +190,7 @@ async def get_stock_analysis(
         "open": realtime["open"],
         "high": realtime["high"],
         "low": realtime["low"],
+        "prev_close": realtime.get("prev_close", 0),  # 昨收
         "volume": realtime["volume"],
         "amount": realtime["amount"],
         "market_cap": realtime.get("market_cap", 0),

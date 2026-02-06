@@ -209,14 +209,23 @@ def get_stock_realtime(code: str) -> Optional[dict]:
 
         # 获取最新价格
         price = meta.get('regularMarketPrice', 0)
-        prev_close = meta.get('chartPreviousClose', price)
+        # 优先使用 regularMarketPreviousClose（昨收），而非 chartPreviousClose（图表起点）
+        prev_close = meta.get('regularMarketPreviousClose') or meta.get('previousClose') or meta.get('chartPreviousClose', price)
 
         # 如果 meta 没有价格，从 quote 获取最后一条
         if not price and quote.get('close'):
             closes = [c for c in quote['close'] if c is not None]
             if closes:
                 price = closes[-1]
+                # 昨收应该是倒数第二天的收盘价
                 prev_close = closes[-2] if len(closes) > 1 else price
+
+        # 如果 prev_close 仍然不对（比如是图表起点），从 quote 获取
+        if quote.get('close'):
+            closes = [c for c in quote['close'] if c is not None]
+            if len(closes) >= 2:
+                # 倒数第二个有效的收盘价是昨收
+                prev_close = closes[-2]
 
         if not price:
             return None
@@ -250,6 +259,7 @@ def get_stock_realtime(code: str) -> Optional[dict]:
             "open": round(float(open_price), 2) if open_price else round(float(price), 2),
             "high": round(float(high), 2) if high else round(float(price), 2),
             "low": round(float(low), 2) if low else round(float(price), 2),
+            "prev_close": round(float(prev_close), 2) if prev_close else 0,  # 昨收
             "volume": int(volume) if volume else 0,
             "amount": 0,
             "turnover": 0,
