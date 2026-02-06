@@ -1,41 +1,68 @@
 {
-  "date": "2026-02-05",
-  "updateTime": "09:31",
+  "date": "2026-02-06",
+  "updateTime": "09:32",
   "market": {
     "shIndex": {
-      "value": 4075.92,
-      "change": -0.64
+      "value": 4065.58,
+      "change": -0.25
     },
     "szIndex": {
-      "value": 13952.71,
-      "change": -1.44
+      "value": 13906.73,
+      "change": -0.33
     },
-    "sentiment": "偏空"
+    "sentiment": "中性"
   },
   "recommendations": [
     {
-      "code": "002129",
-      "name": "TCL中环",
+      "code": "601166",
+      "name": "XD兴业银",
+      "industry": "银行",
+      "price": 18.85,
+      "change": 0.16,
+      "score": 64,
+      "buyPriceLow": 18.72,
+      "buyPriceHigh": 18.66,
+      "stopLoss": 18.05,
+      "takeProfit1": 20.05,
+      "takeProfit2": 20.72,
+      "holdingDays": "5-15个交易日",
+      "positionRatio": "10-15%",
+      "riskLevel": "medium",
+      "reasons": {
+        "technical": [
+          "MACD多头",
+          "RSI=49健康"
+        ],
+        "fundamental": [
+          "涨0.2%",
+          "成交活跃",
+          "价格位置良好"
+        ],
+        "capital": []
+      }
+    },
+    {
+      "code": "601012",
+      "name": "隆基绿能",
       "industry": "光伏",
-      "price": 10.74,
-      "change": 1.61,
-      "score": 79,
-      "buyPriceLow": 10.42,
-      "buyPriceHigh": 10.63,
-      "stopLoss": 9.56,
-      "takeProfit1": 12.13,
-      "takeProfit2": 12.99,
+      "price": 18.36,
+      "change": 0.71,
+      "score": 64,
+      "buyPriceLow": 17.81,
+      "buyPriceHigh": 18.18,
+      "stopLoss": 16.41,
+      "takeProfit1": 20.61,
+      "takeProfit2": 22.02,
       "holdingDays": "5-15个交易日",
       "positionRatio": "5-10%",
       "riskLevel": "high",
       "reasons": {
         "technical": [
           "MACD多头",
-          "均线多头排列",
-          "放量上涨1.8x"
+          "RSI=45健康"
         ],
         "fundamental": [
-          "涨1.6%",
+          "涨0.7%",
           "成交活跃",
           "价格位置良好"
         ],
@@ -43,252 +70,27 @@
       }
     },
     {
-      "code": "000538",
-      "name": "云南白药",
-      "industry": "医药",
-      "price": 57.13,
-      "change": 1.38,
-      "score": 79,
-      "buyPriceLow": 56.1,
-      "buyPriceHigh": 56.56,
-      "stopLoss": 54.42,
-      "takeProfit1": 59.47,
-      "takeProfit2": 61.15,
-      "holdingDays": "5-15个交易日",
-      "positionRatio": "15-20%",
-      "riskLevel": "low",
-      "reasons": {
-        "technical": [
-          "MACD金叉",
-          "放量上涨1.5x"
-        ],
-        "fundamental": [
-          "涨1.4%",
-          "成交活跃",
-          "价格位置良好"
-        ],
-        "capital": []
-      }
-    },
-    {
-      "code": "001979",
-      "name": "招商蛇口",
-      "industry": "地产",
-      "price": 10.92,
-      "change": 0.46,
-      "score": 76,
-      "buyPriceLow": 10.59,
-      "buyPriceHigh": 10.81,
-      "stopLoss": 9.85,
-      "takeProfit1": 12.08,
-      "takeProfit2": 12.82,
-      "holdingDays": "5-15个交易日",
-      "positionRatio": "5-10%",
-      "riskLevel": "high",
-      "reasons": {
-        "technical": [
-          "MACD多头",
-          "均线多头排列"
-        ],
-        "fundamental": [
-          "涨0.5%",
-          "成交活跃",
-          "价格位置良好"
-        ],
-        "capital": []
-      }
-    },
-    {
-      "code": "601318",
-      "name": "中国平安",
-      "industry": "保险",
-      "price": 67.35,
-      "change": -0.07,
-      "score": 72,
-      "buyPriceLow": 65.33,
-      "buyPriceHigh": 66.68,
-      "stopLoss": 62.37,
-      "takeProfit1": 71.25,
-      "takeProfit2": 74.22,
-      "holdingDays": "5-15个交易日",
-      "positionRatio": "10-15%",
-      "riskLevel": "medium",
-      "reasons": {
-        "technical": [
-          "MACD金叉"
-        ],
-        "fundamental": [
-          "微跌-0.1%",
-          "成交活跃",
-          "价格位置良好"
-        ],
-        "capital": []
-      }
-    },
-    {
-      "code": "600585",
-      "name": "海螺水泥",
-      "industry": "水泥",
-      "price": 25.2,
-      "change": -0.16,
-      "score": 72,
-      "buyPriceLow": 24.44,
-      "buyPriceHigh": 24.95,
-      "stopLoss": 23.22,
-      "takeProfit1": 26.89,
-      "takeProfit2": 28.11,
-      "holdingDays": "5-15个交易日",
-      "positionRatio": "10-15%",
-      "riskLevel": "medium",
-      "reasons": {
-        "technical": [
-          "MACD多头",
-          "均线多头排列"
-        ],
-        "fundamental": [
-          "微跌-0.2%",
-          "成交活跃",
-          "价格位置良好"
-        ],
-        "capital": []
-      }
-    }
-  ],
-  "allStocks": [
-    {
-      "code": "002129",
-      "name": "TCL中环",
+      "code": "600438",
+      "name": "通威股份",
       "industry": "光伏",
-      "price": 10.74,
-      "change": 1.61,
-      "score": 79,
-      "buyPriceLow": 10.42,
-      "buyPriceHigh": 10.63,
-      "stopLoss": 9.56,
-      "takeProfit1": 12.13,
-      "takeProfit2": 12.99,
+      "price": 18.57,
+      "change": 1.09,
+      "score": 64,
+      "buyPriceLow": 18.15,
+      "buyPriceHigh": 18.38,
+      "stopLoss": 16.78,
+      "takeProfit1": 20.88,
+      "takeProfit2": 22.24,
       "holdingDays": "5-15个交易日",
       "positionRatio": "5-10%",
       "riskLevel": "high",
       "reasons": {
         "technical": [
           "MACD多头",
-          "均线多头排列",
-          "放量上涨1.8x"
+          "RSI=44健康"
         ],
         "fundamental": [
-          "涨1.6%",
-          "成交活跃",
-          "价格位置良好"
-        ],
-        "capital": []
-      }
-    },
-    {
-      "code": "000538",
-      "name": "云南白药",
-      "industry": "医药",
-      "price": 57.13,
-      "change": 1.38,
-      "score": 79,
-      "buyPriceLow": 56.1,
-      "buyPriceHigh": 56.56,
-      "stopLoss": 54.42,
-      "takeProfit1": 59.47,
-      "takeProfit2": 61.15,
-      "holdingDays": "5-15个交易日",
-      "positionRatio": "15-20%",
-      "riskLevel": "low",
-      "reasons": {
-        "technical": [
-          "MACD金叉",
-          "放量上涨1.5x"
-        ],
-        "fundamental": [
-          "涨1.4%",
-          "成交活跃",
-          "价格位置良好"
-        ],
-        "capital": []
-      }
-    },
-    {
-      "code": "001979",
-      "name": "招商蛇口",
-      "industry": "地产",
-      "price": 10.92,
-      "change": 0.46,
-      "score": 76,
-      "buyPriceLow": 10.59,
-      "buyPriceHigh": 10.81,
-      "stopLoss": 9.85,
-      "takeProfit1": 12.08,
-      "takeProfit2": 12.82,
-      "holdingDays": "5-15个交易日",
-      "positionRatio": "5-10%",
-      "riskLevel": "high",
-      "reasons": {
-        "technical": [
-          "MACD多头",
-          "均线多头排列"
-        ],
-        "fundamental": [
-          "涨0.5%",
-          "成交活跃",
-          "价格位置良好"
-        ],
-        "capital": []
-      }
-    },
-    {
-      "code": "601318",
-      "name": "中国平安",
-      "industry": "保险",
-      "price": 67.35,
-      "change": -0.07,
-      "score": 72,
-      "buyPriceLow": 65.33,
-      "buyPriceHigh": 66.68,
-      "stopLoss": 62.37,
-      "takeProfit1": 71.25,
-      "takeProfit2": 74.22,
-      "holdingDays": "5-15个交易日",
-      "positionRatio": "10-15%",
-      "riskLevel": "medium",
-      "reasons": {
-        "technical": [
-          "MACD金叉"
-        ],
-        "fundamental": [
-          "微跌-0.1%",
-          "成交活跃",
-          "价格位置良好"
-        ],
-        "capital": []
-      }
-    },
-    {
-      "code": "600585",
-      "name": "海螺水泥",
-      "industry": "水泥",
-      "price": 25.2,
-      "change": -0.16,
-      "score": 72,
-      "buyPriceLow": 24.44,
-      "buyPriceHigh": 24.95,
-      "stopLoss": 23.22,
-      "takeProfit1": 26.89,
-      "takeProfit2": 28.11,
-      "holdingDays": "5-15个交易日",
-      "positionRatio": "10-15%",
-      "riskLevel": "medium",
-      "reasons": {
-        "technical": [
-          "MACD多头",
-          "均线多头排列"
-        ],
-        "fundamental": [
-          "微跌-0.2%",
+          "涨1.1%",
           "成交活跃",
           "价格位置良好"
         ],
@@ -299,95 +101,14 @@
       "code": "002415",
       "name": "海康威视",
       "industry": "安防",
-      "price": 32.5,
-      "change": 1.79,
-      "score": 71,
-      "buyPriceLow": 31.52,
-      "buyPriceHigh": 32.17,
-      "stopLoss": 29.95,
-      "takeProfit1": 34.68,
-      "takeProfit2": 36.25,
-      "holdingDays": "5-15个交易日",
-      "positionRatio": "10-15%",
-      "riskLevel": "medium",
-      "reasons": {
-        "technical": [
-          "MACD金叉"
-        ],
-        "fundamental": [
-          "涨1.8%",
-          "成交活跃"
-        ],
-        "capital": []
-      }
-    },
-    {
-      "code": "601857",
-      "name": "中国石油",
-      "industry": "石油",
-      "price": 10.53,
-      "change": -0.28,
-      "score": 69,
-      "buyPriceLow": 10.21,
-      "buyPriceHigh": 10.42,
-      "stopLoss": 9.64,
-      "takeProfit1": 11.36,
-      "takeProfit2": 11.93,
-      "holdingDays": "5-15个交易日",
-      "positionRatio": "10-15%",
-      "riskLevel": "medium",
-      "reasons": {
-        "technical": [
-          "MACD多头",
-          "RSI=37健康"
-        ],
-        "fundamental": [
-          "微跌-0.3%",
-          "成交活跃",
-          "价格位置良好"
-        ],
-        "capital": []
-      }
-    },
-    {
-      "code": "601398",
-      "name": "工商银行",
-      "industry": "银行",
-      "price": 7.3,
-      "change": 0.83,
-      "score": 67,
-      "buyPriceLow": 7.29,
-      "buyPriceHigh": 7.23,
-      "stopLoss": 7.07,
-      "takeProfit1": 7.73,
-      "takeProfit2": 7.95,
-      "holdingDays": "5-15个交易日",
-      "positionRatio": "15-20%",
-      "riskLevel": "low",
-      "reasons": {
-        "technical": [
-          "MACD金叉"
-        ],
-        "fundamental": [
-          "涨0.8%",
-          "成交活跃",
-          "价格位置良好"
-        ],
-        "capital": []
-      }
-    },
-    {
-      "code": "600519",
-      "name": "贵州茅台",
-      "industry": "白酒",
-      "price": 1555.0,
-      "change": 1.97,
-      "score": 64,
-      "buyPriceLow": 1508.35,
-      "buyPriceHigh": 1539.45,
-      "stopLoss": 1432.93,
-      "takeProfit1": 1659.18,
-      "takeProfit2": 1734.6,
+      "price": 32.64,
+      "change": 0.43,
+      "score": 62,
+      "buyPriceLow": 31.66,
+      "buyPriceHigh": 32.31,
+      "stopLoss": 30.16,
+      "takeProfit1": 34.67,
+      "takeProfit2": 36.17,
       "holdingDays": "5-15个交易日",
       "positionRatio": "10-15%",
       "riskLevel": "medium",
@@ -397,599 +118,8 @@
           "均线多头排列"
         ],
         "fundamental": [
-          "涨2.0%",
-          "成交活跃",
-          "价格位置良好"
-        ],
-        "capital": []
-      }
-    },
-    {
-      "code": "601818",
-      "name": "XD光大银",
-      "industry": "银行",
-      "price": 3.32,
-      "change": 1.53,
-      "score": 64,
-      "buyPriceLow": 3.33,
-      "buyPriceHigh": 3.29,
-      "stopLoss": 3.23,
-      "takeProfit1": 3.52,
-      "takeProfit2": 3.62,
-      "holdingDays": "5-15个交易日",
-      "positionRatio": "15-20%",
-      "riskLevel": "low",
-      "reasons": {
-        "technical": [
-          "MACD多头",
-          "RSI=50健康"
-        ],
-        "fundamental": [
-          "涨1.5%",
-          "成交活跃",
-          "价格位置良好"
-        ],
-        "capital": []
-      }
-    },
-    {
-      "code": "601111",
-      "name": "中国国航",
-      "industry": "航空",
-      "price": 9.08,
-      "change": 0.67,
-      "score": 64,
-      "buyPriceLow": 8.81,
-      "buyPriceHigh": 8.99,
-      "stopLoss": 8.35,
-      "takeProfit1": 9.73,
-      "takeProfit2": 10.19,
-      "holdingDays": "5-15个交易日",
-      "positionRatio": "10-15%",
-      "riskLevel": "medium",
-      "reasons": {
-        "technical": [
-          "MACD金叉"
-        ],
-        "fundamental": [
-          "涨0.7%",
-          "成交活跃",
-          "价格位置良好"
-        ],
-        "capital": []
-      }
-    },
-    {
-      "code": "600029",
-      "name": "南方航空",
-      "industry": "航空",
-      "price": 8.25,
-      "change": 0.86,
-      "score": 64,
-      "buyPriceLow": 8.0,
-      "buyPriceHigh": 8.17,
-      "stopLoss": 7.51,
-      "takeProfit1": 8.99,
-      "takeProfit2": 9.48,
-      "holdingDays": "5-15个交易日",
-      "positionRatio": "10-15%",
-      "riskLevel": "medium",
-      "reasons": {
-        "technical": [
-          "MACD金叉"
-        ],
-        "fundamental": [
-          "涨0.9%",
-          "成交活跃",
-          "价格位置良好"
-        ],
-        "capital": []
-      }
-    },
-    {
-      "code": "002352",
-      "name": "顺丰控股",
-      "industry": "快递",
-      "price": 39.22,
-      "change": 1.95,
-      "score": 64,
-      "buyPriceLow": 38.04,
-      "buyPriceHigh": 38.83,
-      "stopLoss": 36.86,
-      "takeProfit1": 40.42,
-      "takeProfit2": 41.61,
-      "holdingDays": "5-15个交易日",
-      "positionRatio": "15-20%",
-      "riskLevel": "low",
-      "reasons": {
-        "technical": [
-          "放量上涨1.6x"
-        ],
-        "fundamental": [
-          "涨1.9%",
-          "成交活跃",
-          "价格位置良好"
-        ],
-        "capital": []
-      }
-    },
-    {
-      "code": "300413",
-      "name": "芒果超媒",
-      "industry": "传媒",
-      "price": 26.65,
-      "change": 0.83,
-      "score": 64,
-      "buyPriceLow": 25.85,
-      "buyPriceHigh": 26.38,
-      "stopLoss": 24.51,
-      "takeProfit1": 28.52,
-      "takeProfit2": 29.86,
-      "holdingDays": "5-15个交易日",
-      "positionRatio": "10-15%",
-      "riskLevel": "medium",
-      "reasons": {
-        "technical": [
-          "MACD金叉"
-        ],
-        "fundamental": [
-          "涨0.8%",
-          "成交活跃",
-          "价格位置良好"
-        ],
-        "capital": []
-      }
-    },
-    {
-      "code": "601601",
-      "name": "中国太保",
-      "industry": "保险",
-      "price": 44.75,
-      "change": 0.04,
-      "score": 61,
-      "buyPriceLow": 43.41,
-      "buyPriceHigh": 44.3,
-      "stopLoss": 40.95,
-      "takeProfit1": 48.32,
-      "takeProfit2": 50.77,
-      "holdingDays": "5-15个交易日",
-      "positionRatio": "10-15%",
-      "riskLevel": "medium",
-      "reasons": {
-        "technical": [],
-        "fundamental": [
-          "涨0.0%",
-          "成交活跃",
-          "价格位置良好"
-        ],
-        "capital": []
-      }
-    },
-    {
-      "code": "600036",
-      "name": "招商银行",
-      "industry": "银行",
-      "price": 39.71,
-      "change": 1.79,
-      "score": 58,
-      "buyPriceLow": 38.52,
-      "buyPriceHigh": 39.31,
-      "stopLoss": 36.91,
-      "takeProfit1": 41.73,
-      "takeProfit2": 43.33,
-      "holdingDays": "5-15个交易日",
-      "positionRatio": "15-20%",
-      "riskLevel": "low",
-      "reasons": {
-        "technical": [
-          "MACD多头"
-        ],
-        "fundamental": [
-          "涨1.8%",
-          "成交活跃",
-          "价格位置良好"
-        ],
-        "capital": []
-      }
-    },
-    {
-      "code": "000333",
-      "name": "美的集团",
-      "industry": "家电",
-      "price": 80.45,
-      "change": 0.8,
-      "score": 58,
-      "buyPriceLow": 78.04,
-      "buyPriceHigh": 79.65,
-      "stopLoss": 74.2,
-      "takeProfit1": 85.7,
-      "takeProfit2": 89.53,
-      "holdingDays": "5-15个交易日",
-      "positionRatio": "15-20%",
-      "riskLevel": "low",
-      "reasons": {
-        "technical": [
-          "MACD多头"
-        ],
-        "fundamental": [
-          "涨0.8%",
-          "成交活跃",
-          "价格位置良好"
-        ],
-        "capital": []
-      }
-    },
-    {
-      "code": "600887",
-      "name": "伊利股份",
-      "industry": "乳业",
-      "price": 27.21,
-      "change": 0.74,
-      "score": 58,
-      "buyPriceLow": 26.39,
-      "buyPriceHigh": 26.94,
-      "stopLoss": 25.53,
-      "takeProfit1": 28.13,
-      "takeProfit2": 29.0,
-      "holdingDays": "5-15个交易日",
-      "positionRatio": "15-20%",
-      "riskLevel": "low",
-      "reasons": {
-        "technical": [
-          "MACD多头"
-        ],
-        "fundamental": [
-          "涨0.7%",
-          "成交活跃",
-          "价格位置良好"
-        ],
-        "capital": []
-      }
-    },
-    {
-      "code": "600690",
-      "name": "海尔智家",
-      "industry": "家电",
-      "price": 26.33,
-      "change": 1.11,
-      "score": 58,
-      "buyPriceLow": 25.54,
-      "buyPriceHigh": 26.07,
-      "stopLoss": 24.55,
-      "takeProfit1": 27.53,
-      "takeProfit2": 28.52,
-      "holdingDays": "5-15个交易日",
-      "positionRatio": "10-15%",
-      "riskLevel": "medium",
-      "reasons": {
-        "technical": [
-          "MACD多头"
-        ],
-        "fundamental": [
-          "涨1.1%",
-          "成交活跃",
-          "价格位置良好"
-        ],
-        "capital": []
-      }
-    },
-    {
-      "code": "600048",
-      "name": "保利发展",
-      "industry": "地产",
-      "price": 7.17,
-      "change": -0.28,
-      "score": 58,
-      "buyPriceLow": 6.95,
-      "buyPriceHigh": 7.1,
-      "stopLoss": 6.57,
-      "takeProfit1": 7.72,
-      "takeProfit2": 8.1,
-      "holdingDays": "5-15个交易日",
-      "positionRatio": "10-15%",
-      "riskLevel": "medium",
-      "reasons": {
-        "technical": [
-          "MACD多头",
-          "均线多头排列"
-        ],
-        "fundamental": [
-          "微跌-0.3%",
-          "成交活跃"
-        ],
-        "capital": []
-      }
-    },
-    {
-      "code": "600900",
-      "name": "长江电力",
-      "industry": "电力",
-      "price": 26.6,
-      "change": 0.83,
-      "score": 58,
-      "buyPriceLow": 25.89,
-      "buyPriceHigh": 26.33,
-      "stopLoss": 25.11,
-      "takeProfit1": 27.44,
-      "takeProfit2": 28.22,
-      "holdingDays": "5-15个交易日",
-      "positionRatio": "15-20%",
-      "riskLevel": "low",
-      "reasons": {
-        "technical": [
-          "MACD多头"
-        ],
-        "fundamental": [
-          "涨0.8%",
-          "成交活跃",
-          "价格位置良好"
-        ],
-        "capital": []
-      }
-    },
-    {
-      "code": "601006",
-      "name": "大秦铁路",
-      "industry": "铁路",
-      "price": 5.11,
-      "change": 0.39,
-      "score": 56,
-      "buyPriceLow": 5.05,
-      "buyPriceHigh": 5.06,
-      "stopLoss": 4.9,
-      "takeProfit1": 5.35,
-      "takeProfit2": 5.5,
-      "holdingDays": "5-15个交易日",
-      "positionRatio": "15-20%",
-      "riskLevel": "low",
-      "reasons": {
-        "technical": [
-          "MACD多头"
-        ],
-        "fundamental": [
           "涨0.4%",
           "成交活跃"
-        ],
-        "capital": []
-      }
-    },
-    {
-      "code": "600893",
-      "name": "航发动力",
-      "industry": "航发",
-      "price": 49.94,
-      "change": 1.07,
-      "score": 56,
-      "buyPriceLow": 48.44,
-      "buyPriceHigh": 49.44,
-      "stopLoss": 43.92,
-      "takeProfit1": 57.48,
-      "takeProfit2": 62.0,
-      "holdingDays": "5-15个交易日",
-      "positionRatio": "5-10%",
-      "riskLevel": "high",
-      "reasons": {
-        "technical": [
-          "MACD多头"
-        ],
-        "fundamental": [
-          "涨1.1%",
-          "成交活跃"
-        ],
-        "capital": []
-      }
-    },
-    {
-      "code": "601166",
-      "name": "兴业银行",
-      "industry": "银行",
-      "price": 19.38,
-      "change": 1.04,
-      "score": 55,
-      "buyPriceLow": 18.8,
-      "buyPriceHigh": 19.19,
-      "stopLoss": 18.16,
-      "takeProfit1": 20.08,
-      "takeProfit2": 20.73,
-      "holdingDays": "5-15个交易日",
-      "positionRatio": "10-15%",
-      "riskLevel": "medium",
-      "reasons": {
-        "technical": [
-          "MACD金叉"
-        ],
-        "fundamental": [
-          "涨1.0%",
-          "成交活跃",
-          "价格位置良好"
-        ],
-        "capital": []
-      }
-    },
-    {
-      "code": "601288",
-      "name": "农业银行",
-      "industry": "银行",
-      "price": 6.7,
-      "change": 0.45,
-      "score": 55,
-      "buyPriceLow": 6.75,
-      "buyPriceHigh": 6.63,
-      "stopLoss": 6.51,
-      "takeProfit1": 7.23,
-      "takeProfit2": 7.47,
-      "holdingDays": "5-15个交易日",
-      "positionRatio": "10-15%",
-      "riskLevel": "medium",
-      "reasons": {
-        "technical": [
-          "RSI=33健康"
-        ],
-        "fundamental": [
-          "涨0.4%",
-          "成交活跃",
-          "价格位置良好"
-        ],
-        "capital": []
-      }
-    },
-    {
-      "code": "002594",
-      "name": "比亚迪",
-      "industry": "汽车",
-      "price": 90.11,
-      "change": 1.09,
-      "score": 55,
-      "buyPriceLow": 87.6,
-      "buyPriceHigh": 89.21,
-      "stopLoss": 84.75,
-      "takeProfit1": 93.28,
-      "takeProfit2": 96.13,
-      "holdingDays": "5-15个交易日",
-      "positionRatio": "10-15%",
-      "riskLevel": "medium",
-      "reasons": {
-        "technical": [
-          "RSI=33健康"
-        ],
-        "fundamental": [
-          "涨1.1%",
-          "成交活跃",
-          "价格位置良好"
-        ],
-        "capital": []
-      }
-    },
-    {
-      "code": "600028",
-      "name": "中国石化",
-      "industry": "石油",
-      "price": 6.4,
-      "change": -1.54,
-      "score": 55,
-      "buyPriceLow": 6.21,
-      "buyPriceHigh": 6.34,
-      "stopLoss": 5.89,
-      "takeProfit1": 6.84,
-      "takeProfit2": 7.15,
-      "holdingDays": "5-15个交易日",
-      "positionRatio": "10-15%",
-      "riskLevel": "medium",
-      "reasons": {
-        "technical": [
-          "MACD多头",
-          "RSI=50健康"
-        ],
-        "fundamental": [
-          "微跌-1.5%",
-          "成交活跃"
-        ],
-        "capital": []
-      }
-    },
-    {
-      "code": "600760",
-      "name": "中航沈飞",
-      "industry": "飞机",
-      "price": 55.79,
-      "change": 0.52,
-      "score": 55,
-      "buyPriceLow": 54.58,
-      "buyPriceHigh": 55.23,
-      "stopLoss": 51.78,
-      "takeProfit1": 60.17,
-      "takeProfit2": 62.97,
-      "holdingDays": "5-15个交易日",
-      "positionRatio": "10-15%",
-      "riskLevel": "medium",
-      "reasons": {
-        "technical": [
-          "RSI=48健康"
-        ],
-        "fundamental": [
-          "涨0.5%",
-          "成交活跃",
-          "价格位置良好"
-        ],
-        "capital": []
-      }
-    },
-    {
-      "code": "601688",
-      "name": "华泰证券",
-      "industry": "券商",
-      "price": 22.39,
-      "change": 1.22,
-      "score": 55,
-      "buyPriceLow": 21.72,
-      "buyPriceHigh": 22.17,
-      "stopLoss": 20.69,
-      "takeProfit1": 23.78,
-      "takeProfit2": 24.82,
-      "holdingDays": "5-15个交易日",
-      "positionRatio": "10-15%",
-      "riskLevel": "medium",
-      "reasons": {
-        "technical": [
-          "RSI=41健康"
-        ],
-        "fundamental": [
-          "涨1.2%",
-          "成交活跃",
-          "价格位置良好"
-        ],
-        "capital": []
-      }
-    },
-    {
-      "code": "300750",
-      "name": "宁德时代",
-      "industry": "电池",
-      "price": 362.94,
-      "change": -0.57,
-      "score": 54,
-      "buyPriceLow": 352.05,
-      "buyPriceHigh": 359.31,
-      "stopLoss": 334.45,
-      "takeProfit1": 387.26,
-      "takeProfit2": 404.86,
-      "holdingDays": "5-15个交易日",
-      "positionRatio": "10-15%",
-      "riskLevel": "medium",
-      "reasons": {
-        "technical": [
-          "MACD多头"
-        ],
-        "fundamental": [
-          "微跌-0.6%",
-          "成交活跃",
-          "价格位置良好"
-        ],
-        "capital": []
-      }
-    },
-    {
-      "code": "600025",
-      "name": "华能水电",
-      "industry": "电力",
-      "price": 9.15,
-      "change": 0.33,
-      "score": 54,
-      "buyPriceLow": 9.04,
-      "buyPriceHigh": 9.06,
-      "stopLoss": 8.77,
-      "takeProfit1": 9.58,
-      "takeProfit2": 9.85,
-      "holdingDays": "5-15个交易日",
-      "positionRatio": "15-20%",
-      "riskLevel": "low",
-      "reasons": {
-        "technical": [
-          "MACD多头"
-        ],
-        "fundamental": [
-          "涨0.3%",
-          "价格位置良好"
         ],
         "capital": []
       }
@@ -998,11 +128,11 @@
       "code": "601939",
       "name": "建设银行",
       "industry": "银行",
-      "price": 8.83,
-      "change": 1.26,
-      "score": 53,
+      "price": 8.84,
+      "change": 0.11,
+      "score": 61,
       "buyPriceLow": 8.77,
-      "buyPriceHigh": 8.74,
+      "buyPriceHigh": 8.75,
       "stopLoss": 8.51,
       "takeProfit1": 9.3,
       "takeProfit2": 9.56,
@@ -1011,108 +141,38 @@
       "riskLevel": "low",
       "reasons": {
         "technical": [
-          "MACD金叉"
-        ],
-        "fundamental": [
-          "涨1.3%",
-          "成交活跃"
-        ],
-        "capital": []
-      }
-    },
-    {
-      "code": "603288",
-      "name": "海天味业",
-      "industry": "调味品",
-      "price": 37.96,
-      "change": 4.63,
-      "score": 53,
-      "buyPriceLow": 36.82,
-      "buyPriceHigh": 37.58,
-      "stopLoss": 34.98,
-      "takeProfit1": 40.5,
-      "takeProfit2": 42.34,
-      "holdingDays": "5-15个交易日",
-      "positionRatio": "15-20%",
-      "riskLevel": "low",
-      "reasons": {
-        "technical": [
-          "MACD金叉",
-          "放量上涨2.2x"
-        ],
-        "fundamental": [
-          "成交活跃"
-        ],
-        "capital": []
-      }
-    },
-    {
-      "code": "603369",
-      "name": "今世缘",
-      "industry": "白酒",
-      "price": 34.4,
-      "change": 0.47,
-      "score": 52,
-      "buyPriceLow": 33.37,
-      "buyPriceHigh": 34.06,
-      "stopLoss": 31.7,
-      "takeProfit1": 36.7,
-      "takeProfit2": 38.37,
-      "holdingDays": "5-15个交易日",
-      "positionRatio": "10-15%",
-      "riskLevel": "medium",
-      "reasons": {
-        "technical": [
           "MACD多头"
         ],
         "fundamental": [
-          "涨0.5%"
-        ],
-        "capital": []
-      }
-    },
-    {
-      "code": "600000",
-      "name": "浦发银行",
-      "industry": "银行",
-      "price": 10.23,
-      "change": 0.99,
-      "score": 52,
-      "buyPriceLow": 10.08,
-      "buyPriceHigh": 10.13,
-      "stopLoss": 9.73,
-      "takeProfit1": 10.77,
-      "takeProfit2": 11.12,
-      "holdingDays": "5-15个交易日",
-      "positionRatio": "10-15%",
-      "riskLevel": "medium",
-      "reasons": {
-        "technical": [],
-        "fundamental": [
-          "涨1.0%",
+          "涨0.1%",
           "成交活跃",
           "价格位置良好"
         ],
         "capital": []
       }
-    },
+    }
+  ],
+  "allStocks": [
     {
-      "code": "300059",
-      "name": "东方财富",
-      "industry": "金融IT",
-      "price": 22.93,
-      "change": 0.17,
-      "score": 52,
-      "buyPriceLow": 22.84,
-      "buyPriceHigh": 22.7,
-      "stopLoss": 22.15,
-      "takeProfit1": 24.21,
-      "takeProfit2": 24.89,
+      "code": "601166",
+      "name": "XD兴业银",
+      "industry": "银行",
+      "price": 18.85,
+      "change": 0.16,
+      "score": 64,
+      "buyPriceLow": 18.72,
+      "buyPriceHigh": 18.66,
+      "stopLoss": 18.05,
+      "takeProfit1": 20.05,
+      "takeProfit2": 20.72,
       "holdingDays": "5-15个交易日",
-      "positionRatio": "15-20%",
-      "riskLevel": "low",
+      "positionRatio": "10-15%",
+      "riskLevel": "medium",
       "reasons": {
-        "technical": [],
+        "technical": [
+          "MACD多头",
+          "RSI=49健康"
+        ],
         "fundamental": [
           "涨0.2%",
           "成交活跃",
@@ -1122,24 +182,27 @@
       }
     },
     {
-      "code": "600276",
-      "name": "恒瑞医药",
-      "industry": "医药",
-      "price": 58.16,
-      "change": 0.97,
-      "score": 52,
-      "buyPriceLow": 57.2,
-      "buyPriceHigh": 57.58,
-      "stopLoss": 54.98,
-      "takeProfit1": 61.64,
-      "takeProfit2": 63.86,
+      "code": "601012",
+      "name": "隆基绿能",
+      "industry": "光伏",
+      "price": 18.36,
+      "change": 0.71,
+      "score": 64,
+      "buyPriceLow": 17.81,
+      "buyPriceHigh": 18.18,
+      "stopLoss": 16.41,
+      "takeProfit1": 20.61,
+      "takeProfit2": 22.02,
       "holdingDays": "5-15个交易日",
-      "positionRatio": "10-15%",
-      "riskLevel": "medium",
+      "positionRatio": "5-10%",
+      "riskLevel": "high",
       "reasons": {
-        "technical": [],
+        "technical": [
+          "MACD多头",
+          "RSI=45健康"
+        ],
         "fundamental": [
-          "涨1.0%",
+          "涨0.7%",
           "成交活跃",
           "价格位置良好"
         ],
@@ -1147,22 +210,79 @@
       }
     },
     {
-      "code": "000651",
-      "name": "格力电器",
-      "industry": "家电",
-      "price": 38.92,
-      "change": 0.1,
-      "score": 52,
-      "buyPriceLow": 38.75,
-      "buyPriceHigh": 38.53,
-      "stopLoss": 37.59,
-      "takeProfit1": 41.07,
-      "takeProfit2": 42.24,
+      "code": "600438",
+      "name": "通威股份",
+      "industry": "光伏",
+      "price": 18.57,
+      "change": 1.09,
+      "score": 64,
+      "buyPriceLow": 18.15,
+      "buyPriceHigh": 18.38,
+      "stopLoss": 16.78,
+      "takeProfit1": 20.88,
+      "takeProfit2": 22.24,
+      "holdingDays": "5-15个交易日",
+      "positionRatio": "5-10%",
+      "riskLevel": "high",
+      "reasons": {
+        "technical": [
+          "MACD多头",
+          "RSI=44健康"
+        ],
+        "fundamental": [
+          "涨1.1%",
+          "成交活跃",
+          "价格位置良好"
+        ],
+        "capital": []
+      }
+    },
+    {
+      "code": "002415",
+      "name": "海康威视",
+      "industry": "安防",
+      "price": 32.64,
+      "change": 0.43,
+      "score": 62,
+      "buyPriceLow": 31.66,
+      "buyPriceHigh": 32.31,
+      "stopLoss": 30.16,
+      "takeProfit1": 34.67,
+      "takeProfit2": 36.17,
+      "holdingDays": "5-15个交易日",
+      "positionRatio": "10-15%",
+      "riskLevel": "medium",
+      "reasons": {
+        "technical": [
+          "MACD多头",
+          "均线多头排列"
+        ],
+        "fundamental": [
+          "涨0.4%",
+          "成交活跃"
+        ],
+        "capital": []
+      }
+    },
+    {
+      "code": "601939",
+      "name": "建设银行",
+      "industry": "银行",
+      "price": 8.84,
+      "change": 0.11,
+      "score": 61,
+      "buyPriceLow": 8.77,
+      "buyPriceHigh": 8.75,
+      "stopLoss": 8.51,
+      "takeProfit1": 9.3,
+      "takeProfit2": 9.56,
       "holdingDays": "5-15个交易日",
       "positionRatio": "15-20%",
       "riskLevel": "low",
       "reasons": {
-        "technical": [],
+        "technical": [
+          "MACD多头"
+        ],
         "fundamental": [
           "涨0.1%",
           "成交活跃",
@@ -1172,50 +292,27 @@
       }
     },
     {
-      "code": "600030",
-      "name": "中信证券",
-      "industry": "券商",
-      "price": 28.29,
-      "change": -0.32,
-      "score": 52,
-      "buyPriceLow": 28.25,
-      "buyPriceHigh": 28.01,
-      "stopLoss": 27.41,
-      "takeProfit1": 29.95,
-      "takeProfit2": 30.8,
+      "code": "601818",
+      "name": "光大银行",
+      "industry": "银行",
+      "price": 3.31,
+      "change": -0.3,
+      "score": 60,
+      "buyPriceLow": 3.33,
+      "buyPriceHigh": 3.28,
+      "stopLoss": 3.23,
+      "takeProfit1": 3.52,
+      "takeProfit2": 3.62,
       "holdingDays": "5-15个交易日",
       "positionRatio": "15-20%",
       "riskLevel": "low",
       "reasons": {
         "technical": [
-          "MACD多头"
+          "MACD多头",
+          "RSI=42健康"
         ],
         "fundamental": [
           "微跌-0.3%",
-          "成交活跃"
-        ],
-        "capital": []
-      }
-    },
-    {
-      "code": "601211",
-      "name": "国泰海通",
-      "industry": "券商",
-      "price": 20.15,
-      "change": 0.8,
-      "score": 49,
-      "buyPriceLow": 19.64,
-      "buyPriceHigh": 19.95,
-      "stopLoss": 18.94,
-      "takeProfit1": 21.02,
-      "takeProfit2": 21.72,
-      "holdingDays": "5-15个交易日",
-      "positionRatio": "10-15%",
-      "riskLevel": "medium",
-      "reasons": {
-        "technical": [],
-        "fundamental": [
-          "涨0.8%",
           "成交活跃",
           "价格位置良好"
         ],
@@ -1223,43 +320,98 @@
       }
     },
     {
-      "code": "601390",
-      "name": "中国中铁",
-      "industry": "基建",
-      "price": 5.57,
-      "change": -2.28,
-      "score": 47,
-      "buyPriceLow": 5.41,
-      "buyPriceHigh": 5.51,
-      "stopLoss": 5.0,
-      "takeProfit1": 6.21,
-      "takeProfit2": 6.62,
+      "code": "601857",
+      "name": "中国石油",
+      "industry": "石油",
+      "price": 10.77,
+      "change": 2.28,
+      "score": 59,
+      "buyPriceLow": 10.45,
+      "buyPriceHigh": 10.66,
+      "stopLoss": 9.84,
+      "takeProfit1": 11.65,
+      "takeProfit2": 12.26,
       "holdingDays": "5-15个交易日",
-      "positionRatio": "5-10%",
-      "riskLevel": "high",
+      "positionRatio": "10-15%",
+      "riskLevel": "medium",
       "reasons": {
         "technical": [
           "MACD多头",
-          "RSI=39健康"
+          "RSI=44健康"
         ],
         "fundamental": [
+          "涨2.3%",
           "成交活跃"
         ],
         "capital": []
       }
     },
     {
-      "code": "000568",
-      "name": "泸州老窖",
-      "industry": "白酒",
-      "price": 125.46,
+      "code": "300750",
+      "name": "宁德时代",
+      "industry": "电池",
+      "price": 369.11,
+      "change": 1.7,
+      "score": 58,
+      "buyPriceLow": 358.04,
+      "buyPriceHigh": 365.42,
+      "stopLoss": 340.13,
+      "takeProfit1": 393.84,
+      "takeProfit2": 411.74,
+      "holdingDays": "5-15个交易日",
+      "positionRatio": "10-15%",
+      "riskLevel": "medium",
+      "reasons": {
+        "technical": [
+          "MACD多头"
+        ],
+        "fundamental": [
+          "涨1.7%",
+          "成交活跃",
+          "价格位置良好"
+        ],
+        "capital": []
+      }
+    },
+    {
+      "code": "002129",
+      "name": "TCL中环",
+      "industry": "光伏",
+      "price": 10.62,
+      "change": -1.12,
+      "score": 58,
+      "buyPriceLow": 10.3,
+      "buyPriceHigh": 10.51,
+      "stopLoss": 9.4,
+      "takeProfit1": 12.11,
+      "takeProfit2": 13.01,
+      "holdingDays": "5-15个交易日",
+      "positionRatio": "5-10%",
+      "riskLevel": "high",
+      "reasons": {
+        "technical": [
+          "MACD多头",
+          "均线多头排列"
+        ],
+        "fundamental": [
+          "微跌-1.1%",
+          "成交活跃"
+        ],
+        "capital": []
+      }
+    },
+    {
+      "code": "600585",
+      "name": "海螺水泥",
+      "industry": "水泥",
+      "price": 25.03,
       "change": -0.67,
-      "score": 46,
-      "buyPriceLow": 121.7,
-      "buyPriceHigh": 124.21,
-      "stopLoss": 115.51,
-      "takeProfit1": 134.06,
-      "takeProfit2": 140.24,
+      "score": 58,
+      "buyPriceLow": 24.28,
+      "buyPriceHigh": 24.78,
+      "stopLoss": 23.02,
+      "takeProfit1": 26.8,
+      "takeProfit2": 28.06,
       "holdingDays": "5-15个交易日",
       "positionRatio": "10-15%",
       "riskLevel": "medium",
@@ -1276,17 +428,43 @@
       }
     },
     {
-      "code": "000858",
-      "name": "五 粮 液",
-      "industry": "白酒",
-      "price": 108.89,
-      "change": 0.34,
-      "score": 44,
-      "buyPriceLow": 105.62,
-      "buyPriceHigh": 107.8,
-      "stopLoss": 100.34,
-      "takeProfit1": 116.19,
-      "takeProfit2": 121.47,
+      "code": "002352",
+      "name": "顺丰控股",
+      "industry": "快递",
+      "price": 38.86,
+      "change": -0.92,
+      "score": 58,
+      "buyPriceLow": 37.99,
+      "buyPriceHigh": 38.47,
+      "stopLoss": 36.81,
+      "takeProfit1": 40.36,
+      "takeProfit2": 41.54,
+      "holdingDays": "5-15个交易日",
+      "positionRatio": "10-15%",
+      "riskLevel": "medium",
+      "reasons": {
+        "technical": [
+          "MACD金叉"
+        ],
+        "fundamental": [
+          "微跌-0.9%",
+          "成交活跃"
+        ],
+        "capital": []
+      }
+    },
+    {
+      "code": "600028",
+      "name": "中国石化",
+      "industry": "石油",
+      "price": 6.5,
+      "change": 1.56,
+      "score": 56,
+      "buyPriceLow": 6.3,
+      "buyPriceHigh": 6.43,
+      "stopLoss": 5.98,
+      "takeProfit1": 6.95,
+      "takeProfit2": 7.27,
       "holdingDays": "5-15个交易日",
       "positionRatio": "10-15%",
       "riskLevel": "medium",
@@ -1295,24 +473,240 @@
           "MACD多头"
         ],
         "fundamental": [
-          "涨0.3%",
+          "涨1.6%",
           "成交活跃"
         ],
         "capital": []
       }
     },
     {
-      "code": "601668",
-      "name": "中国建筑",
-      "industry": "建筑",
-      "price": 5.15,
-      "change": 0.19,
-      "score": 44,
-      "buyPriceLow": 5.0,
-      "buyPriceHigh": 5.1,
-      "stopLoss": 4.84,
-      "takeProfit1": 5.31,
-      "takeProfit2": 5.46,
+      "code": "000858",
+      "name": "五 粮 液",
+      "industry": "白酒",
+      "price": 107.0,
+      "change": -1.74,
+      "score": 55,
+      "buyPriceLow": 103.79,
+      "buyPriceHigh": 105.93,
+      "stopLoss": 99.17,
+      "takeProfit1": 113.03,
+      "takeProfit2": 117.65,
+      "holdingDays": "5-15个交易日",
+      "positionRatio": "10-15%",
+      "riskLevel": "medium",
+      "reasons": {
+        "technical": [
+          "MACD多头",
+          "RSI=34健康"
+        ],
+        "fundamental": [
+          "微跌-1.7%",
+          "成交活跃"
+        ],
+        "capital": []
+      }
+    },
+    {
+      "code": "601318",
+      "name": "中国平安",
+      "industry": "保险",
+      "price": 66.9,
+      "change": -0.67,
+      "score": 55,
+      "buyPriceLow": 64.93,
+      "buyPriceHigh": 66.23,
+      "stopLoss": 61.95,
+      "takeProfit1": 70.89,
+      "takeProfit2": 73.87,
+      "holdingDays": "5-15个交易日",
+      "positionRatio": "10-15%",
+      "riskLevel": "medium",
+      "reasons": {
+        "technical": [
+          "MACD多头",
+          "RSI=36健康"
+        ],
+        "fundamental": [
+          "微跌-0.7%",
+          "成交活跃"
+        ],
+        "capital": []
+      }
+    },
+    {
+      "code": "603259",
+      "name": "药明康德",
+      "industry": "CXO",
+      "price": 97.83,
+      "change": 0.74,
+      "score": 55,
+      "buyPriceLow": 94.9,
+      "buyPriceHigh": 96.85,
+      "stopLoss": 90.47,
+      "takeProfit1": 103.75,
+      "takeProfit2": 108.17,
+      "holdingDays": "5-15个交易日",
+      "positionRatio": "10-15%",
+      "riskLevel": "medium",
+      "reasons": {
+        "technical": [
+          "RSI=49健康"
+        ],
+        "fundamental": [
+          "涨0.7%",
+          "成交活跃",
+          "价格位置良好"
+        ],
+        "capital": []
+      }
+    },
+    {
+      "code": "601006",
+      "name": "大秦铁路",
+      "industry": "铁路",
+      "price": 5.07,
+      "change": -0.78,
+      "score": 55,
+      "buyPriceLow": 5.05,
+      "buyPriceHigh": 5.02,
+      "stopLoss": 4.9,
+      "takeProfit1": 5.35,
+      "takeProfit2": 5.5,
+      "holdingDays": "5-15个交易日",
+      "positionRatio": "15-20%",
+      "riskLevel": "low",
+      "reasons": {
+        "technical": [
+          "MACD多头",
+          "RSI=50健康"
+        ],
+        "fundamental": [
+          "微跌-0.8%",
+          "成交活跃"
+        ],
+        "capital": []
+      }
+    },
+    {
+      "code": "600030",
+      "name": "中信证券",
+      "industry": "券商",
+      "price": 28.16,
+      "change": -0.46,
+      "score": 55,
+      "buyPriceLow": 28.25,
+      "buyPriceHigh": 27.88,
+      "stopLoss": 27.41,
+      "takeProfit1": 29.95,
+      "takeProfit2": 30.8,
+      "holdingDays": "5-15个交易日",
+      "positionRatio": "15-20%",
+      "riskLevel": "low",
+      "reasons": {
+        "technical": [
+          "MACD多头",
+          "RSI=36健康"
+        ],
+        "fundamental": [
+          "微跌-0.5%",
+          "成交活跃"
+        ],
+        "capital": []
+      }
+    },
+    {
+      "code": "600029",
+      "name": "南方航空",
+      "industry": "航空",
+      "price": 8.22,
+      "change": -0.36,
+      "score": 54,
+      "buyPriceLow": 7.97,
+      "buyPriceHigh": 8.14,
+      "stopLoss": 7.5,
+      "takeProfit1": 8.92,
+      "takeProfit2": 9.39,
+      "holdingDays": "5-15个交易日",
+      "positionRatio": "10-15%",
+      "riskLevel": "medium",
+      "reasons": {
+        "technical": [
+          "MACD多头"
+        ],
+        "fundamental": [
+          "微跌-0.4%",
+          "成交活跃",
+          "价格位置良好"
+        ],
+        "capital": []
+      }
+    },
+    {
+      "code": "600048",
+      "name": "保利发展",
+      "industry": "地产",
+      "price": 6.98,
+      "change": -2.65,
+      "score": 53,
+      "buyPriceLow": 6.77,
+      "buyPriceHigh": 6.91,
+      "stopLoss": 6.38,
+      "takeProfit1": 7.55,
+      "takeProfit2": 7.93,
+      "holdingDays": "5-15个交易日",
+      "positionRatio": "10-15%",
+      "riskLevel": "medium",
+      "reasons": {
+        "technical": [
+          "MACD多头",
+          "RSI=45健康",
+          "均线多头排列"
+        ],
+        "fundamental": [
+          "成交活跃"
+        ],
+        "capital": []
+      }
+    },
+    {
+      "code": "001979",
+      "name": "招商蛇口",
+      "industry": "地产",
+      "price": 10.63,
+      "change": -2.66,
+      "score": 53,
+      "buyPriceLow": 10.31,
+      "buyPriceHigh": 10.52,
+      "stopLoss": 9.58,
+      "takeProfit1": 11.78,
+      "takeProfit2": 12.52,
+      "holdingDays": "5-15个交易日",
+      "positionRatio": "5-10%",
+      "riskLevel": "high",
+      "reasons": {
+        "technical": [
+          "MACD多头",
+          "RSI=44健康",
+          "均线多头排列"
+        ],
+        "fundamental": [
+          "成交活跃"
+        ],
+        "capital": []
+      }
+    },
+    {
+      "code": "000538",
+      "name": "云南白药",
+      "industry": "医药",
+      "price": 57.0,
+      "change": -0.23,
+      "score": 52,
+      "buyPriceLow": 56.1,
+      "buyPriceHigh": 56.43,
+      "stopLoss": 54.42,
+      "takeProfit1": 59.47,
+      "takeProfit2": 61.15,
       "holdingDays": "5-15个交易日",
       "positionRatio": "15-20%",
       "riskLevel": "low",
@@ -1321,27 +715,105 @@
           "MACD多头"
         ],
         "fundamental": [
-          "涨0.2%",
+          "微跌-0.2%",
           "成交活跃"
         ],
         "capital": []
       }
     },
     {
-      "code": "002714",
-      "name": "牧原股份",
-      "industry": "养殖",
-      "price": 46.73,
-      "change": -0.28,
-      "score": 43,
-      "buyPriceLow": 45.33,
-      "buyPriceHigh": 46.26,
-      "stopLoss": 43.55,
-      "takeProfit1": 48.88,
-      "takeProfit2": 50.65,
+      "code": "600887",
+      "name": "伊利股份",
+      "industry": "乳业",
+      "price": 27.08,
+      "change": -0.48,
+      "score": 52,
+      "buyPriceLow": 26.32,
+      "buyPriceHigh": 26.81,
+      "stopLoss": 25.53,
+      "takeProfit1": 27.89,
+      "takeProfit2": 28.68,
+      "holdingDays": "5-15个交易日",
+      "positionRatio": "15-20%",
+      "riskLevel": "low",
+      "reasons": {
+        "technical": [
+          "MACD多头"
+        ],
+        "fundamental": [
+          "微跌-0.5%",
+          "成交活跃"
+        ],
+        "capital": []
+      }
+    },
+    {
+      "code": "603288",
+      "name": "XD海天味",
+      "industry": "调味品",
+      "price": 37.09,
+      "change": -1.51,
+      "score": 52,
+      "buyPriceLow": 35.98,
+      "buyPriceHigh": 36.72,
+      "stopLoss": 34.46,
+      "takeProfit1": 39.01,
+      "takeProfit2": 40.53,
       "holdingDays": "5-15个交易日",
       "positionRatio": "10-15%",
       "riskLevel": "medium",
+      "reasons": {
+        "technical": [
+          "MACD多头"
+        ],
+        "fundamental": [
+          "微跌-1.5%",
+          "成交活跃"
+        ],
+        "capital": []
+      }
+    },
+    {
+      "code": "600690",
+      "name": "海尔智家",
+      "industry": "家电",
+      "price": 26.07,
+      "change": -0.99,
+      "score": 52,
+      "buyPriceLow": 25.31,
+      "buyPriceHigh": 25.81,
+      "stopLoss": 24.52,
+      "takeProfit1": 26.88,
+      "takeProfit2": 27.67,
+      "holdingDays": "5-15个交易日",
+      "positionRatio": "10-15%",
+      "riskLevel": "medium",
+      "reasons": {
+        "technical": [
+          "MACD多头"
+        ],
+        "fundamental": [
+          "微跌-1.0%",
+          "成交活跃"
+        ],
+        "capital": []
+      }
+    },
+    {
+      "code": "600900",
+      "name": "长江电力",
+      "industry": "电力",
+      "price": 26.52,
+      "change": -0.3,
+      "score": 52,
+      "buyPriceLow": 25.89,
+      "buyPriceHigh": 26.25,
+      "stopLoss": 25.11,
+      "takeProfit1": 27.44,
+      "takeProfit2": 28.22,
+      "holdingDays": "5-15个交易日",
+      "positionRatio": "15-20%",
+      "riskLevel": "low",
       "reasons": {
         "technical": [
           "MACD多头"
@@ -1354,24 +826,234 @@
       }
     },
     {
-      "code": "000768",
-      "name": "中航西飞",
-      "industry": "飞机",
-      "price": 30.08,
-      "change": -1.51,
-      "score": 43,
-      "buyPriceLow": 29.18,
-      "buyPriceHigh": 29.78,
-      "stopLoss": 27.12,
-      "takeProfit1": 33.3,
-      "takeProfit2": 35.36,
+      "code": "300274",
+      "name": "阳光电源",
+      "industry": "光伏",
+      "price": 144.5,
+      "change": -1.03,
+      "score": 51,
+      "buyPriceLow": 143.92,
+      "buyPriceHigh": 143.06,
+      "stopLoss": 133.63,
+      "takeProfit1": 164.51,
+      "takeProfit2": 174.8,
+      "holdingDays": "5-15个交易日",
+      "positionRatio": "5-10%",
+      "riskLevel": "high",
+      "reasons": {
+        "technical": [
+          "RSI=45健康"
+        ],
+        "fundamental": [
+          "微跌-1.0%",
+          "成交活跃",
+          "价格位置良好"
+        ],
+        "capital": []
+      }
+    },
+    {
+      "code": "600519",
+      "name": "贵州茅台",
+      "industry": "白酒",
+      "price": 1515.01,
+      "change": -2.57,
+      "score": 50,
+      "buyPriceLow": 1469.56,
+      "buyPriceHigh": 1499.86,
+      "stopLoss": 1396.08,
+      "takeProfit1": 1616.52,
+      "takeProfit2": 1689.99,
+      "holdingDays": "5-15个交易日",
+      "positionRatio": "10-15%",
+      "riskLevel": "medium",
+      "reasons": {
+        "technical": [
+          "MACD多头",
+          "均线多头排列"
+        ],
+        "fundamental": [
+          "成交活跃"
+        ],
+        "capital": []
+      }
+    },
+    {
+      "code": "601601",
+      "name": "中国太保",
+      "industry": "保险",
+      "price": 44.81,
+      "change": 0.13,
+      "score": 49,
+      "buyPriceLow": 43.47,
+      "buyPriceHigh": 44.36,
+      "stopLoss": 41.01,
+      "takeProfit1": 48.39,
+      "takeProfit2": 50.85,
+      "holdingDays": "5-15个交易日",
+      "positionRatio": "10-15%",
+      "riskLevel": "medium",
+      "reasons": {
+        "technical": [],
+        "fundamental": [
+          "涨0.1%",
+          "成交活跃",
+          "价格位置良好"
+        ],
+        "capital": []
+      }
+    },
+    {
+      "code": "000568",
+      "name": "泸州老窖",
+      "industry": "白酒",
+      "price": 122.83,
+      "change": -2.1,
+      "score": 47,
+      "buyPriceLow": 119.15,
+      "buyPriceHigh": 121.6,
+      "stopLoss": 112.63,
+      "takeProfit1": 132.17,
+      "takeProfit2": 138.68,
+      "holdingDays": "5-15个交易日",
+      "positionRatio": "10-15%",
+      "riskLevel": "medium",
+      "reasons": {
+        "technical": [
+          "MACD多头",
+          "RSI=44健康"
+        ],
+        "fundamental": [
+          "成交活跃"
+        ],
+        "capital": []
+      }
+    },
+    {
+      "code": "000799",
+      "name": "酒鬼酒",
+      "industry": "白酒",
+      "price": 56.38,
+      "change": -3.72,
+      "score": 47,
+      "buyPriceLow": 54.69,
+      "buyPriceHigh": 55.82,
+      "stopLoss": 50.54,
+      "takeProfit1": 62.98,
+      "takeProfit2": 67.12,
+      "holdingDays": "5-15个交易日",
+      "positionRatio": "5-10%",
+      "riskLevel": "high",
+      "reasons": {
+        "technical": [
+          "MACD多头",
+          "RSI=47健康"
+        ],
+        "fundamental": [
+          "成交活跃"
+        ],
+        "capital": []
+      }
+    },
+    {
+      "code": "002602",
+      "name": "世纪华通",
+      "industry": "游戏",
+      "price": 19.8,
+      "change": 1.96,
+      "score": 47,
+      "buyPriceLow": 19.21,
+      "buyPriceHigh": 19.6,
+      "stopLoss": 17.71,
+      "takeProfit1": 22.2,
+      "takeProfit2": 23.7,
       "holdingDays": "5-15个交易日",
       "positionRatio": "5-10%",
       "riskLevel": "high",
       "reasons": {
         "technical": [],
         "fundamental": [
-          "微跌-1.5%",
+          "涨2.0%",
+          "成交活跃"
+        ],
+        "capital": []
+      }
+    },
+    {
+      "code": "601398",
+      "name": "工商银行",
+      "industry": "银行",
+      "price": 7.26,
+      "change": -0.55,
+      "score": 46,
+      "buyPriceLow": 7.29,
+      "buyPriceHigh": 7.19,
+      "stopLoss": 7.07,
+      "takeProfit1": 7.73,
+      "takeProfit2": 7.95,
+      "holdingDays": "5-15个交易日",
+      "positionRatio": "15-20%",
+      "riskLevel": "low",
+      "reasons": {
+        "technical": [
+          "MACD多头",
+          "RSI=50健康"
+        ],
+        "fundamental": [
+          "微跌-0.5%",
+          "成交活跃"
+        ],
+        "capital": []
+      }
+    },
+    {
+      "code": "000333",
+      "name": "美的集团",
+      "industry": "家电",
+      "price": 79.54,
+      "change": -1.13,
+      "score": 46,
+      "buyPriceLow": 77.15,
+      "buyPriceHigh": 78.74,
+      "stopLoss": 74.2,
+      "takeProfit1": 83.05,
+      "takeProfit2": 86.0,
+      "holdingDays": "5-15个交易日",
+      "positionRatio": "15-20%",
+      "riskLevel": "low",
+      "reasons": {
+        "technical": [
+          "MACD多头",
+          "均线多头排列"
+        ],
+        "fundamental": [
+          "微跌-1.1%",
+          "成交活跃"
+        ],
+        "capital": []
+      }
+    },
+    {
+      "code": "601328",
+      "name": "交通银行",
+      "industry": "银行",
+      "price": 6.71,
+      "change": -0.74,
+      "score": 43,
+      "buyPriceLow": 6.61,
+      "buyPriceHigh": 6.64,
+      "stopLoss": 6.41,
+      "takeProfit1": 7.01,
+      "takeProfit2": 7.2,
+      "holdingDays": "5-15个交易日",
+      "positionRatio": "15-20%",
+      "riskLevel": "low",
+      "reasons": {
+        "technical": [
+          "MACD多头"
+        ],
+        "fundamental": [
+          "微跌-0.7%",
           "成交活跃"
         ],
         "capital": []
@@ -1381,11 +1063,11 @@
       "code": "000001",
       "name": "平安银行",
       "industry": "银行",
-      "price": 11.09,
-      "change": 1.09,
-      "score": 41,
+      "price": 11.05,
+      "change": -0.36,
+      "score": 43,
       "buyPriceLow": 10.87,
-      "buyPriceHigh": 10.98,
+      "buyPriceHigh": 10.94,
       "stopLoss": 10.55,
       "takeProfit1": 11.53,
       "takeProfit2": 11.85,
@@ -1394,36 +1076,87 @@
       "riskLevel": "low",
       "reasons": {
         "technical": [
-          "MACD金叉"
+          "MACD多头"
         ],
         "fundamental": [
-          "涨1.1%",
+          "微跌-0.4%",
           "成交活跃"
         ],
         "capital": []
       }
     },
     {
-      "code": "000725",
-      "name": "京东方Ａ",
-      "industry": "面板",
-      "price": 4.41,
-      "change": 0.46,
-      "score": 41,
-      "buyPriceLow": 4.3,
-      "buyPriceHigh": 4.37,
-      "stopLoss": 4.13,
-      "takeProfit1": 4.66,
-      "takeProfit2": 4.83,
+      "code": "002714",
+      "name": "牧原股份",
+      "industry": "养殖",
+      "price": 46.41,
+      "change": -0.68,
+      "score": 43,
+      "buyPriceLow": 45.08,
+      "buyPriceHigh": 45.95,
+      "stopLoss": 43.28,
+      "takeProfit1": 48.68,
+      "takeProfit2": 50.48,
       "holdingDays": "5-15个交易日",
       "positionRatio": "10-15%",
       "riskLevel": "medium",
       "reasons": {
         "technical": [
-          "RSI=37健康"
+          "MACD多头"
         ],
         "fundamental": [
-          "涨0.5%",
+          "微跌-0.7%",
+          "成交活跃"
+        ],
+        "capital": []
+      }
+    },
+    {
+      "code": "601668",
+      "name": "中国建筑",
+      "industry": "建筑",
+      "price": 5.07,
+      "change": -1.55,
+      "score": 43,
+      "buyPriceLow": 5.0,
+      "buyPriceHigh": 5.02,
+      "stopLoss": 4.84,
+      "takeProfit1": 5.31,
+      "takeProfit2": 5.46,
+      "holdingDays": "5-15个交易日",
+      "positionRatio": "10-15%",
+      "riskLevel": "medium",
+      "reasons": {
+        "technical": [
+          "MACD多头"
+        ],
+        "fundamental": [
+          "微跌-1.6%",
+          "成交活跃"
+        ],
+        "capital": []
+      }
+    },
+    {
+      "code": "600893",
+      "name": "航发动力",
+      "industry": "航发",
+      "price": 48.49,
+      "change": -2.9,
+      "score": 41,
+      "buyPriceLow": 47.04,
+      "buyPriceHigh": 48.01,
+      "stopLoss": 42.8,
+      "takeProfit1": 55.51,
+      "takeProfit2": 59.74,
+      "holdingDays": "5-15个交易日",
+      "positionRatio": "5-10%",
+      "riskLevel": "high",
+      "reasons": {
+        "technical": [
+          "均线多头排列"
+        ],
+        "fundamental": [
           "成交活跃"
         ],
         "capital": []
