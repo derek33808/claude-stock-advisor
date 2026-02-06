@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { getStockAnalysis, StockAnalysis, ApiError } from '@/lib/api';
 import Disclaimer from '@/components/Disclaimer';
 import WatchlistButton from '@/components/WatchlistButton';
+import ProgressBar from '@/components/ProgressBar';
 
 function SearchContent() {
   const searchParams = useSearchParams();
@@ -95,21 +96,11 @@ function SearchContent() {
           <p className="text-xs text-gray-400 mt-1">首次查询可能需要 10-30 秒</p>
           {/* 进度条 */}
           <div className="mt-4 w-48 mx-auto">
-            <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
-              <div
-                className="bg-gradient-to-r from-blue-400 to-blue-600 h-2 rounded-full"
-                style={{
-                  animation: 'progress 2s ease-in-out infinite',
-                }}
-              ></div>
-            </div>
-            <style jsx>{`
-              @keyframes progress {
-                0% { width: 0%; }
-                50% { width: 70%; }
-                100% { width: 100%; }
-              }
-            `}</style>
+            <ProgressBar
+              estimatedSeconds={30}
+              showPercent
+              color="blue"
+            />
           </div>
         </div>
       )}
@@ -178,7 +169,11 @@ function StockAnalysisResult({ stock }: { stock: StockAnalysis }) {
         </div>
 
         {/* 今日行情 */}
-        <div className="mt-3 grid grid-cols-4 gap-2 text-center text-sm">
+        <div className="mt-3 grid grid-cols-5 gap-2 text-center text-sm">
+          <div>
+            <div className="text-gray-400">昨收</div>
+            <div className="font-medium">{(stock.prev_close || 0).toFixed(2)}</div>
+          </div>
           <div>
             <div className="text-gray-400">开盘</div>
             <div className="font-medium">{stock.open.toFixed(2)}</div>

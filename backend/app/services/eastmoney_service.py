@@ -154,6 +154,7 @@ def get_stock_realtime(code: str) -> Optional[dict]:
                 "open": round(open_price, 2),
                 "high": round(high, 2),
                 "low": round(low, 2),
+                "prev_close": round(prev_close, 2),  # 昨收
                 "volume": volume,
                 "amount": amount,
                 "turnover": 0,

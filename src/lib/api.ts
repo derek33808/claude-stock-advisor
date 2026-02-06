@@ -68,6 +68,7 @@ export interface StockAnalysis {
   open: number;
   high: number;
   low: number;
+  prev_close: number;  // 昨收
   volume: number;
   amount: number;
   market_cap: number;
