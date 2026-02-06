@@ -381,26 +381,15 @@ def get_history(code: str, days: int = 60) -> Optional[pd.DataFrame]:
 
 def get_realtime(code: str) -> Optional[dict]:
     """
-    智能获取实时行情，东方财富失败时自动切换到 Yahoo Finance
+    获取实时行情，每次请求都先尝试东方财富，失败再用 Yahoo
     """
-    global _eastmoney_available, _last_eastmoney_check
+    # 每次请求都先尝试东方财富（不使用全局状态，避免一次失败影响后续请求）
+    result = get_stock_realtime(code)
+    if result is not None:
+        return result
 
-    # 检查是否需要重试东方财富
-    if not _eastmoney_available and _last_eastmoney_check:
-        if datetime.now() - _last_eastmoney_check > _eastmoney_check_interval:
-            _eastmoney_available = True
-
-    # 首先尝试东方财富
-    if _eastmoney_available:
-        result = get_stock_realtime(code)
-        if result is not None:
-            return result
-        # 东方财富失败
-        print(f"[Fallback] 东方财富获取实时行情失败 {code}，切换到 Yahoo Finance")
-        _eastmoney_available = False
-        _last_eastmoney_check = datetime.now()
-
-    # 尝试 Yahoo Finance（全球可访问）
+    # 东方财富失败，尝试 Yahoo Finance
+    print(f"[Fallback] 东方财富获取实时行情失败 {code}，尝试 Yahoo Finance")
     try:
         from app.services import yahoo_service
         result = yahoo_service.get_stock_realtime(code)
