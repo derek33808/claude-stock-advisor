@@ -1,0 +1,256 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { getStockAnalysis, StockAnalysis } from '@/lib/api';
+import Disclaimer from './Disclaimer';
+import WatchlistButton from './WatchlistButton';
+
+interface StockDetailClientProps {
+  code: string;
+}
+
+export default function StockDetailClient({ code }: StockDetailClientProps) {
+  const [stock, setStock] = useState<StockAnalysis | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchStock = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await getStockAnalysis(code);
+        setStock(data);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : '加载失败');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStock();
+  }, [code]);
+
+  // 加载中状态
+  if (loading) {
+    return (
+      <main className="max-w-lg mx-auto px-4 py-6">
+        <Link href="/" className="inline-flex items-center text-blue-500 text-sm mb-4">
+          ← 返回首页
+        </Link>
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <h2 className="text-lg font-semibold text-gray-800 mb-2">加载股票数据中...</h2>
+          <p className="text-sm text-gray-500">股票代码: {code}</p>
+          <p className="text-xs text-gray-400 mt-2">首次加载可能需要 10-30 秒</p>
+        </div>
+      </main>
+    );
+  }
+
+  // 错误状态
+  if (error || !stock) {
+    return (
+      <main className="max-w-lg mx-auto px-4 py-6">
+        <Link href="/" className="text-blue-500 text-sm">← 返回首页</Link>
+        <div className="text-center py-12">
+          <div className="text-4xl mb-4">📊</div>
+          <h1 className="text-xl font-bold text-gray-800">暂时无法获取数据</h1>
+          <p className="text-sm text-gray-500 mt-2">可能的原因：</p>
+          <ul className="text-sm text-gray-500 mt-2 space-y-1">
+            <li>• 后端服务正在启动中（请稍等30秒后刷新）</li>
+            <li>• 股票代码 {code} 可能不正确</li>
+            <li>• 网络连接问题</li>
+          </ul>
+          {error && (
+            <p className="text-xs text-red-500 mt-4">{error}</p>
+          )}
+          <div className="mt-6 space-x-4">
+            <button
+              onClick={() => window.location.reload()}
+              className="inline-block px-4 py-2 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600"
+            >
+              刷新重试
+            </button>
+            <Link
+              href="/"
+              className="inline-block px-4 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm hover:bg-gray-300"
+            >
+              返回首页
+            </Link>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  const isUp = stock.change >= 0;
+
+  // 风险等级映射
+  const getRiskDisplay = (risk: string) => {
+    const riskMap: Record<string, { text: string; bgClass: string; textClass: string }> = {
+      'low': { text: '低风险', bgClass: 'bg-green-50', textClass: 'text-green-600' },
+      '低': { text: '低风险', bgClass: 'bg-green-50', textClass: 'text-green-600' },
+      'medium': { text: '中风险', bgClass: 'bg-yellow-50', textClass: 'text-yellow-600' },
+      '中': { text: '中风险', bgClass: 'bg-yellow-50', textClass: 'text-yellow-600' },
+      'high': { text: '高风险', bgClass: 'bg-red-50', textClass: 'text-red-600' },
+      '高': { text: '高风险', bgClass: 'bg-red-50', textClass: 'text-red-600' },
+    };
+    return riskMap[risk] || { text: '中风险', bgClass: 'bg-yellow-50', textClass: 'text-yellow-600' };
+  };
+
+  const riskDisplay = getRiskDisplay(stock.suggestion.risk_level);
+
+  return (
+    <main className="max-w-lg mx-auto px-4 py-6">
+      {/* 返回按钮 */}
+      <div className="flex justify-between items-center mb-4">
+        <Link href="/" className="inline-flex items-center text-blue-500 text-sm">
+          ← 返回首页
+        </Link>
+        <WatchlistButton code={stock.code} name={stock.name} size="md" />
+      </div>
+
+      {/* 股票基本信息 */}
+      <header className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-4">
+        <div className="flex justify-between items-start">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-800">{stock.name}</h1>
+            <p className="text-sm text-gray-500">{stock.code} · {stock.industry}</p>
+          </div>
+          <div className="text-right">
+            <div className="text-3xl font-bold text-blue-600">{stock.score}</div>
+            <div className="text-xs text-gray-400">综合评分</div>
+          </div>
+        </div>
+
+        {/* 价格信息 */}
+        <div className={`mt-4 p-3 rounded-lg ${isUp ? 'bg-up' : 'bg-down'}`}>
+          <div className={`text-3xl font-bold ${isUp ? 'text-up' : 'text-down'}`}>
+            ¥{stock.price.toFixed(2)}
+          </div>
+          <div className={`text-lg ${isUp ? 'text-up' : 'text-down'}`}>
+            {isUp ? '+' : ''}{stock.change.toFixed(2)}%
+          </div>
+        </div>
+      </header>
+
+      {/* 交易建议 */}
+      <section className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-4">
+        <h2 className="text-lg font-semibold text-gray-800 mb-3">交易建议</h2>
+
+        <div className="space-y-3">
+          <TradingItem
+            label="建议买入价"
+            value={`¥${stock.suggestion.buy_price.low.toFixed(2)} - ¥${stock.suggestion.buy_price.high.toFixed(2)}`}
+            hint="等待回调至此区间买入"
+          />
+          <TradingItem
+            label="止损价"
+            value={`¥${stock.suggestion.stop_loss.toFixed(2)}`}
+            hint={`跌破即止损 (${(((stock.suggestion.stop_loss - stock.suggestion.buy_price.low) / stock.suggestion.buy_price.low) * 100).toFixed(1)}%)`}
+            danger
+          />
+          <TradingItem
+            label="止盈目标1"
+            value={`¥${stock.suggestion.take_profit.target1.toFixed(2)}`}
+            hint={`盈利 ${(((stock.suggestion.take_profit.target1 - stock.suggestion.buy_price.low) / stock.suggestion.buy_price.low) * 100).toFixed(1)}% 可减仓`}
+            success
+          />
+          <TradingItem
+            label="止盈目标2"
+            value={`¥${stock.suggestion.take_profit.target2.toFixed(2)}`}
+            hint={`盈利 ${(((stock.suggestion.take_profit.target2 - stock.suggestion.buy_price.low) / stock.suggestion.buy_price.low) * 100).toFixed(1)}% 可清仓`}
+            success
+          />
+          <TradingItem
+            label="建议仓位"
+            value={stock.suggestion.position_ratio}
+            hint="单只股票投入比例"
+          />
+          <TradingItem
+            label="持有周期"
+            value={stock.suggestion.holding_days}
+            hint="建议持有时间"
+          />
+        </div>
+      </section>
+
+      {/* 推荐理由 */}
+      <section className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-4">
+        <h2 className="text-lg font-semibold text-gray-800 mb-3">推荐理由</h2>
+        <ul className="space-y-1">
+          {stock.reasons.map((reason, index) => (
+            <li key={index} className="text-sm text-gray-600 flex items-start">
+              <span className="text-blue-500 mr-2">•</span>
+              {reason}
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      {/* 风险等级 */}
+      <section className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-4">
+        <h2 className="text-lg font-semibold text-gray-800 mb-3">风险评估</h2>
+        <div className={`text-center p-4 rounded-lg ${riskDisplay.bgClass}`}>
+          <div className={`text-2xl font-bold ${riskDisplay.textClass}`}>
+            {riskDisplay.text}
+          </div>
+          <p className="text-xs text-gray-500 mt-1">
+            {stock.suggestion.risk_level === 'low' || stock.suggestion.risk_level === '低' ? '波动较小，适合稳健型投资者' :
+             stock.suggestion.risk_level === 'medium' || stock.suggestion.risk_level === '中' ? '波动适中，注意控制仓位' :
+             '波动较大，建议小仓位参与'}
+          </p>
+        </div>
+      </section>
+
+      {/* 交易指导摘要 */}
+      {stock.summary && (
+        <section className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl shadow-sm border border-blue-100 p-4 mb-4">
+          <h2 className="text-lg font-semibold text-gray-800 mb-3 flex items-center">
+            <span className="mr-2">📝</span>
+            交易指导
+          </h2>
+          <div className="bg-white rounded-lg p-4 text-sm text-gray-700 whitespace-pre-line leading-relaxed">
+            {stock.summary}
+          </div>
+        </section>
+      )}
+
+      {/* 风险提示 */}
+      <Disclaimer />
+    </main>
+  );
+}
+
+// 交易建议项组件
+function TradingItem({
+  label,
+  value,
+  hint,
+  danger,
+  success,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  danger?: boolean;
+  success?: boolean;
+}) {
+  return (
+    <div className="flex justify-between items-center py-2 border-b border-gray-100 last:border-0">
+      <div>
+        <div className="text-sm text-gray-600">{label}</div>
+        {hint && <div className="text-xs text-gray-400">{hint}</div>}
+      </div>
+      <div className={`text-lg font-semibold ${
+        danger ? 'text-red-500' :
+        success ? 'text-green-500' :
+        'text-gray-800'
+      }`}>
+        {value}
+      </div>
+    </div>
+  );
+}

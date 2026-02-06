@@ -40,6 +40,7 @@ export interface StockAnalysis {
   };
   reasons: string[];
   score: number;
+  summary?: string;
 }
 
 /**
