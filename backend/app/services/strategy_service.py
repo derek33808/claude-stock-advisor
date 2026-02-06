@@ -253,23 +253,13 @@ async def generate_daily_recommendations(top_n: int = 5) -> list[dict]:
         list of recommended stocks
     """
     try:
-        import akshare as ak
-
-        # 获取全市场股票
-        df = ak.stock_zh_a_spot_em()
-
-        # 基础过滤
-        df = filter_basic(df)
-
-        # 限制分析数量（避免太慢）
-        # 按成交额排序，取前 200 只活跃股
-        df = df.nlargest(200, "成交额")
+        # 使用东方财富预定义的股票列表（约60只主流股票）
+        # 不再依赖 AKShare，避免网络连接问题
+        from app.services.eastmoney_service import STOCK_LIST
 
         recommendations = []
 
-        for _, row in df.iterrows():
-            code = row["代码"]
-
+        for code, name, industry in STOCK_LIST:
             try:
                 analysis = await analyze_stock(code)
                 if analysis is None:
