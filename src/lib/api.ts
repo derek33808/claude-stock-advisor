@@ -86,19 +86,26 @@ export class ApiError extends Error {
 }
 
 /**
- * 通用 API 请求函数
+ * 通用 API 请求函数（含超时处理）
  */
-async function apiRequest<T>(endpoint: string, options?: RequestInit): Promise<T> {
+async function apiRequest<T>(endpoint: string, options?: RequestInit, timeoutMs: number = 60000): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
+
+  // 创建超时控制器
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const response = await fetch(url, {
       ...options,
+      signal: controller.signal,
       headers: {
         'Content-Type': 'application/json',
         ...options?.headers,
       },
     });
+
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ detail: '请求失败' }));
@@ -107,8 +114,12 @@ async function apiRequest<T>(endpoint: string, options?: RequestInit): Promise<T
 
     return response.json();
   } catch (error) {
+    clearTimeout(timeoutId);
     if (error instanceof ApiError) {
       throw error;
+    }
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new ApiError('请求超时，后端服务可能正在启动中，请稍后重试', 408);
     }
     throw new ApiError('网络错误，请检查后端服务是否运行', 0);
   }

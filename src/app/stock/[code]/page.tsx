@@ -34,9 +34,16 @@ async function getStockFromAPI(code: string, includeAI: boolean = true): Promise
       ? `${API_BASE_URL}/stock/${code}?ai_analysis=true`
       : `${API_BASE_URL}/stock/${code}`;
 
+    // 添加超时控制，后端冷启动可能需要较长时间
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60秒超时
+
     const res = await fetch(url, {
       cache: 'no-store',
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId);
+
     if (!res.ok) return null;
 
     const analysis = await res.json();
@@ -102,8 +109,28 @@ export default async function StockDetailPage({
       <main className="max-w-lg mx-auto px-4 py-6">
         <Link href="/" className="text-blue-500 text-sm">← 返回首页</Link>
         <div className="text-center py-12">
-          <h1 className="text-xl font-bold text-gray-800">股票未找到</h1>
-          <p className="text-sm text-gray-500 mt-2">请检查股票代码是否正确</p>
+          <div className="text-4xl mb-4">📊</div>
+          <h1 className="text-xl font-bold text-gray-800">暂时无法获取数据</h1>
+          <p className="text-sm text-gray-500 mt-2">可能的原因：</p>
+          <ul className="text-sm text-gray-500 mt-2 space-y-1">
+            <li>• 后端服务正在启动中（请稍等30秒后刷新）</li>
+            <li>• 股票代码 {code} 可能不正确</li>
+            <li>• 网络连接问题</li>
+          </ul>
+          <div className="mt-6 space-x-4">
+            <Link
+              href={`/stock/${code}`}
+              className="inline-block px-4 py-2 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600"
+            >
+              刷新重试
+            </Link>
+            <Link
+              href="/"
+              className="inline-block px-4 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm hover:bg-gray-300"
+            >
+              返回首页
+            </Link>
+          </div>
         </div>
       </main>
     );
