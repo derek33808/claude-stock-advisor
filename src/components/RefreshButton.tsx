@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { generateRecommendations } from '@/lib/api';
+import ProgressBar from './ProgressBar';
 
 interface RefreshButtonProps {
   onRefreshComplete?: () => void;
@@ -57,11 +58,26 @@ export default function RefreshButton({ onRefreshComplete }: RefreshButtonProps)
         <span className={`${loading ? 'animate-spin' : ''}`}>
           {loading ? '⟳' : '↻'}
         </span>
-        <span>{loading ? '分析中(约3分钟)...' : '刷新推荐'}</span>
+        <span>{loading ? '分析中...' : '刷新推荐'}</span>
       </button>
 
+      {/* 加载中显示进度条 */}
+      {loading && (
+        <div className="absolute top-full right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-100 p-4 z-20">
+          <p className="text-xs text-gray-600 mb-2">正在分析60只股票...</p>
+          <ProgressBar
+            estimatedSeconds={180}
+            showPercent
+            color="blue"
+          />
+          <p className="text-xs text-gray-400 mt-2 text-center">
+            预计需要 2-3 分钟
+          </p>
+        </div>
+      )}
+
       {/* 状态提示 */}
-      {status !== 'idle' && (
+      {status !== 'idle' && !loading && (
         <div
           className={`
             absolute top-full right-0 mt-2 px-3 py-2 rounded-lg text-xs font-medium

@@ -343,10 +343,13 @@ export interface AIRankingsResponse {
 /**
  * 获取 AI 智能排名
  * 注意：此操作需要分析多只股票，可能需要较长时间
+ * @param limit 返回数量
+ * @param refresh 强制刷新缓存
  */
-export async function getAIRankings(limit: number = 10): Promise<AIRankingsResponse> {
+export async function getAIRankings(limit: number = 10, refresh: boolean = false): Promise<AIRankingsResponse> {
   // AI排名需要更长超时（2分钟）和更多重试
-  return apiRequest(`/rankings/ai?limit=${limit}`, undefined, 120000, 3);
+  const refreshParam = refresh ? '&refresh=true' : '';
+  return apiRequest(`/rankings/ai?limit=${limit}${refreshParam}`, undefined, 120000, 3);
 }
 
 /**

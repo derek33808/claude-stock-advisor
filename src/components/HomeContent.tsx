@@ -232,7 +232,7 @@ export default function HomeContent({ recommendations }: HomeContentProps) {
     }
   };
 
-  const loadAIRankings = async () => {
+  const loadAIRankings = async (forceRefresh: boolean = false) => {
     setLoadingRankings(true);
     setRankingsError(null);
     setAIModelStatus(null);
@@ -242,7 +242,7 @@ export default function HomeContent({ recommendations }: HomeContentProps) {
       if (isBackendPossiblyAsleep()) {
         await wakeUpBackend();
       }
-      const response = await getAIRankings(10);
+      const response = await getAIRankings(10, forceRefresh);
       setAIRankings(response.rankings);
 
       // 更新 AI 模型状态
@@ -309,7 +309,7 @@ export default function HomeContent({ recommendations }: HomeContentProps) {
               </p>
               <p className="text-xs text-gray-500 mb-3">{rankingsError}</p>
               <button
-                onClick={loadAIRankings}
+                onClick={() => loadAIRankings(true)}
                 className="px-4 py-2 bg-purple-500 text-white rounded-lg text-sm hover:bg-purple-600"
               >
                 重新加载
@@ -320,7 +320,7 @@ export default function HomeContent({ recommendations }: HomeContentProps) {
               <div className="text-4xl mb-3">🤖</div>
               <p className="text-gray-500">暂无 AI 排名数据</p>
               <button
-                onClick={loadAIRankings}
+                onClick={() => loadAIRankings()}
                 className="mt-3 text-purple-500 text-sm hover:underline"
               >
                 立即加载
@@ -390,7 +390,7 @@ export default function HomeContent({ recommendations }: HomeContentProps) {
               {/* 刷新按钮 */}
               <div className="text-center py-4">
                 <button
-                  onClick={loadAIRankings}
+                  onClick={() => loadAIRankings(true)}
                   disabled={loadingRankings}
                   className="text-purple-500 text-sm hover:underline disabled:opacity-50"
                 >
