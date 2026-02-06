@@ -1,6 +1,8 @@
 """
 东方财富 API 数据获取服务
 全球可访问，用于获取 A 股实时和历史数据
+
+增加了自动 fallback 到新浪财经的逻辑，当东方财富 API 不可用时自动切换
 """
 
 import json
@@ -13,6 +15,11 @@ from typing import Optional, List, Dict
 # 配置
 REQUEST_TIMEOUT = 15
 MAX_RETRIES = 3
+
+# 数据源状态追踪
+_eastmoney_available = True
+_last_eastmoney_check = None
+_eastmoney_check_interval = timedelta(minutes=5)  # 5分钟后重试东方财富
 
 # 预定义的股票列表 (用于搜索和行业信息)
 STOCK_LIST = [
@@ -336,12 +343,109 @@ def search_stocks(keyword: str, limit: int = 20) -> list[dict]:
     return results
 
 
-# 兼容接口
+# 兼容接口 - 带自动 fallback 到新浪财经
 def get_history(code: str, days: int = 60) -> Optional[pd.DataFrame]:
-    """智能获取历史数据"""
-    return get_stock_history(code, days)
+    """
+    智能获取历史数据，东方财富失败时自动切换到新浪财经
+    """
+    global _eastmoney_available, _last_eastmoney_check
+
+    # 检查是否需要重试东方财富
+    if not _eastmoney_available and _last_eastmoney_check:
+        if datetime.now() - _last_eastmoney_check > _eastmoney_check_interval:
+            _eastmoney_available = True  # 重新尝试东方财富
+
+    # 首先尝试东方财富
+    if _eastmoney_available:
+        result = get_stock_history(code, days)
+        if result is not None and not result.empty:
+            return result
+        # 东方财富失败，标记为不可用
+        print(f"[Fallback] 东方财富获取历史数据失败 {code}，切换到新浪财经")
+        _eastmoney_available = False
+        _last_eastmoney_check = datetime.now()
+
+    # 尝试新浪财经
+    try:
+        from app.services import sina_service
+        result = sina_service.get_stock_history(code, days)
+        if result is not None and not result.empty:
+            print(f"[Fallback] 使用新浪财经获取历史数据成功 {code}")
+            return result
+    except Exception as e:
+        print(f"[Fallback] 新浪财经也失败了 {code}: {e}")
+
+    return None
 
 
 def get_realtime(code: str) -> Optional[dict]:
-    """智能获取实时行情"""
-    return get_stock_realtime(code)
+    """
+    智能获取实时行情，东方财富失败时自动切换到新浪财经
+    """
+    global _eastmoney_available, _last_eastmoney_check
+
+    # 检查是否需要重试东方财富
+    if not _eastmoney_available and _last_eastmoney_check:
+        if datetime.now() - _last_eastmoney_check > _eastmoney_check_interval:
+            _eastmoney_available = True
+
+    # 首先尝试东方财富
+    if _eastmoney_available:
+        result = get_stock_realtime(code)
+        if result is not None:
+            return result
+        # 东方财富失败
+        print(f"[Fallback] 东方财富获取实时行情失败 {code}，切换到新浪财经")
+        _eastmoney_available = False
+        _last_eastmoney_check = datetime.now()
+
+    # 尝试新浪财经
+    try:
+        from app.services import sina_service
+        result = sina_service.get_stock_realtime(code)
+        if result is not None:
+            print(f"[Fallback] 使用新浪财经获取实时行情成功 {code}")
+            return result
+    except Exception as e:
+        print(f"[Fallback] 新浪财经也失败了 {code}: {e}")
+
+    return None
+
+
+def get_market_indices_with_fallback() -> dict:
+    """
+    获取大盘指数，东方财富失败时自动切换到新浪财经
+    """
+    global _eastmoney_available, _last_eastmoney_check
+
+    # 检查是否需要重试东方财富
+    if not _eastmoney_available and _last_eastmoney_check:
+        if datetime.now() - _last_eastmoney_check > _eastmoney_check_interval:
+            _eastmoney_available = True
+
+    # 首先尝试东方财富
+    if _eastmoney_available:
+        result = get_market_indices()
+        if result and result.get('sh_index', 0) > 0:
+            return result
+        print("[Fallback] 东方财富获取大盘指数失败，切换到新浪财经")
+        _eastmoney_available = False
+        _last_eastmoney_check = datetime.now()
+
+    # 尝试新浪财经
+    try:
+        from app.services import sina_service
+        result = sina_service.get_market_indices()
+        if result and result.get('sh_index', 0) > 0:
+            print("[Fallback] 使用新浪财经获取大盘指数成功")
+            return result
+    except Exception as e:
+        print(f"[Fallback] 新浪财经获取大盘指数也失败了: {e}")
+
+    return {
+        'sh_index': 0,
+        'sh_change': 0,
+        'sz_index': 0,
+        'sz_change': 0,
+        'sentiment': '未知'
+    }

@@ -17,8 +17,8 @@ async def get_today_recommendations():
 
     返回：市场概览 + 推荐股票列表
     """
-    # 获取市场概览
-    market = eastmoney_service.get_market_indices()
+    # 获取市场概览（带 fallback）
+    market = eastmoney_service.get_market_indices_with_fallback()
 
     # 获取最新推荐
     date, recommendations = await db.get_latest_recommendations()
@@ -135,8 +135,8 @@ async def generate_recommendations():
         today = datetime.now().strftime("%Y-%m-%d")
         await db.save_recommendations(today, recommendations)
 
-        # 保存市场概览
-        market = eastmoney_service.get_market_indices()
+        # 保存市场概览（带 fallback）
+        market = eastmoney_service.get_market_indices_with_fallback()
         await db.save_market_overview(today, market)
 
         return {
@@ -157,6 +157,7 @@ async def generate_recommendations():
 async def get_market_overview():
     """
     获取市场概览（大盘指数）
+    自动 fallback 到新浪财经
     """
-    market = eastmoney_service.get_market_indices()
+    market = eastmoney_service.get_market_indices_with_fallback()
     return market

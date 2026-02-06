@@ -11,6 +11,14 @@ let backendAwake = false;
 let lastWakeTime = 0;
 const WAKE_CACHE_MS = 5 * 60 * 1000; // 5分钟内认为后端是醒的
 
+// 股票数据缓存（避免重复请求）
+const stockCache = new Map<string, { data: StockAnalysis; timestamp: number }>();
+const STOCK_CACHE_MS = 3 * 60 * 1000; // 缓存 3 分钟
+
+// AI 排名缓存
+let aiRankingsCache: { data: { count: number; rankings: AIRankingItem[] }; timestamp: number } | null = null;
+const AI_RANKINGS_CACHE_MS = 5 * 60 * 1000; // 缓存 5 分钟
+
 /**
  * 唤醒后端服务（Render 免费版会休眠）
  */
@@ -215,10 +223,23 @@ export async function getRecommendationsByDate(date: string): Promise<Recommenda
 }
 
 /**
- * 获取股票分析
+ * 获取股票分析（带缓存）
  */
 export async function getStockAnalysis(code: string): Promise<StockAnalysis> {
-  return apiRequest<StockAnalysis>(`/stock/${code}`);
+  // 检查缓存
+  const cached = stockCache.get(code);
+  if (cached && Date.now() - cached.timestamp < STOCK_CACHE_MS) {
+    console.log(`[Cache] Using cached data for ${code}`);
+    return cached.data;
+  }
+
+  // 请求新数据
+  const data = await apiRequest<StockAnalysis>(`/stock/${code}`);
+
+  // 存入缓存
+  stockCache.set(code, { data, timestamp: Date.now() });
+
+  return data;
 }
 
 /**
