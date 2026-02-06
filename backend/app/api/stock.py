@@ -18,20 +18,42 @@ _ai_rankings_cache = {
     "cache_duration": timedelta(minutes=30)
 }
 
+# 单股票分析缓存（内存缓存，有效期 30 分钟）
+_stock_analysis_cache: dict = {}
+_stock_cache_duration = timedelta(minutes=30)
+
 
 @router.get("/stock/{code}")
 async def get_stock_analysis(
     code: str,
-    ai_analysis: bool = Query(default=False, description="是否包含 AI 智能分析")
+    ai_analysis: bool = Query(default=False, description="是否包含 AI 智能分析"),
+    refresh: bool = Query(default=False, description="强制刷新缓存")
 ):
     """
     获取股票完整分析
 
     - code: 股票代码（如 600519, 000001, 512930）
     - ai_analysis: 是否包含 AI 智能分析（公司分析、基本面、AI评分）
+    - refresh: 强制刷新缓存
 
     返回：基本信息、实时行情、技术指标、交易建议、AI分析（可选）
+    数据缓存 30 分钟
     """
+    global _stock_analysis_cache
+
+    # 缓存 key
+    cache_key = f"{code}_{ai_analysis}"
+
+    # 检查缓存
+    if not refresh and cache_key in _stock_analysis_cache:
+        cached = _stock_analysis_cache[cache_key]
+        if datetime.now() - cached["updated_at"] < _stock_cache_duration:
+            # 返回缓存数据，但更新实时价格
+            response = cached["data"].copy()
+            response["cached"] = True
+            response["cache_time"] = cached["updated_at"].strftime("%H:%M:%S")
+            return response
+
     # 获取历史数据
     df = eastmoney_service.get_history(code, days=60)
     if df is None or df.empty:
@@ -203,7 +225,41 @@ async def get_stock_analysis(
         )
         response["ai_ranking_score"] = ai_ranking_score
 
+    # 保存到缓存
+    _stock_analysis_cache[cache_key] = {
+        "data": response,
+        "updated_at": datetime.now()
+    }
+
+    response["cached"] = False
     return response
+
+
+@router.post("/stocks/prefetch")
+async def prefetch_stocks(codes: list[str]):
+    """
+    批量预加载股票数据（后台缓存）
+
+    - codes: 股票代码列表
+
+    预加载后，后续访问单股票 API 会直接返回缓存数据
+    """
+    results = {"success": [], "failed": []}
+
+    for code in codes[:20]:  # 限制最多 20 只
+        try:
+            # 调用单股票分析（会自动缓存）
+            await get_stock_analysis(code, ai_analysis=False, refresh=False)
+            results["success"].append(code)
+        except Exception as e:
+            results["failed"].append({"code": code, "error": str(e)})
+
+    return {
+        "total": len(codes),
+        "cached": len(results["success"]),
+        "failed": len(results["failed"]),
+        "details": results
+    }
 
 
 @router.get("/stock/{code}/kline")
