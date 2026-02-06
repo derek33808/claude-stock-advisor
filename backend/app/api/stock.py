@@ -23,6 +23,30 @@ _stock_analysis_cache: dict = {}
 _stock_cache_duration = timedelta(minutes=3)
 
 
+# 注意：搜索路由必须在动态路由 /stock/{code} 之前定义，否则 "search" 会被当作股票代码
+@router.get("/stock/search")
+async def search_stocks(q: str, limit: int = 20):
+    """
+    搜索股票
+
+    - q: 搜索关键词（代码或名称）
+    - limit: 返回数量限制（默认 20）
+    """
+    if not q or len(q) < 1:
+        raise HTTPException(
+            status_code=400,
+            detail="请输入搜索关键词"
+        )
+
+    results = eastmoney_service.search_stocks(q, limit=limit)
+
+    return {
+        "query": q,
+        "count": len(results),
+        "results": results,
+    }
+
+
 @router.get("/stock/{code}")
 async def get_stock_analysis(
     code: str,
@@ -294,29 +318,6 @@ async def get_stock_kline(code: str, days: int = 60):
         "code": code,
         "days": len(kline_data),
         "data": kline_data,
-    }
-
-
-@router.get("/stock/search")
-async def search_stocks(q: str, limit: int = 20):
-    """
-    搜索股票
-
-    - q: 搜索关键词（代码或名称）
-    - limit: 返回数量限制（默认 20）
-    """
-    if not q or len(q) < 1:
-        raise HTTPException(
-            status_code=400,
-            detail="请输入搜索关键词"
-        )
-
-    results = eastmoney_service.search_stocks(q, limit=limit)
-
-    return {
-        "query": q,
-        "count": len(results),
-        "results": results,
     }
 
 

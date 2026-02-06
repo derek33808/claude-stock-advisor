@@ -126,7 +126,7 @@ npx tsc --noEmit
 **Results:**
 - Build Status: PASS
 - TypeScript Check: PASS (no type errors)
-- Build Time: ~1.3 seconds
+- Build Time: ~1.4 seconds
 
 **Build Output:**
 ```
@@ -136,6 +136,123 @@ Route (app)
 - /search (Static)
 - /stock/[code] (Dynamic)
 ```
+
+---
+
+## E2E API Test Results
+
+### Test Execution #1 - 2026-02-06
+
+**Test Environment:**
+- Backend URL: https://stock-advisor-api-6vtb.onrender.com
+- Frontend URL: https://stock-advisor.netlify.app
+- Test Time: 2026-02-06 22:15 CST
+
+#### TC001: Health Check - PASS
+- **Endpoint**: GET /health
+- **Response**: `{"status":"healthy"}`
+- **HTTP Code**: 200
+- **Response Time**: 0.87s
+- **Status**: PASS
+
+#### TC002: Market Overview - PASS
+- **Endpoint**: GET /api/v1/market/overview
+- **Response**: `{"sh_index":4065.58,"sh_change":-0.25,"sz_index":13906.73,"sz_change":-0.33,"sentiment":"中性"}`
+- **HTTP Code**: 200
+- **Response Time**: 5.82s
+- **Validation**: All required fields present (sh_index, sz_index, sentiment)
+- **Status**: PASS
+
+#### TC003: Recommendations List - FAIL
+- **Endpoint**: GET /api/v1/recommendations
+- **Expected**: Maximum 10 stocks
+- **Actual**: Only 5 stocks returned
+- **HTTP Code**: 200
+- **Response Time**: 5.47s
+- **Issue**: Recommendations count is 5, not 10 as expected per recent changes
+- **Status**: FAIL
+- **Severity**: MAJOR
+
+**Details:**
+The API returned only 5 recommended stocks:
+1. 002873 - 新天药业 (Score: 80)
+2. 600009 - 上海机场 (Score: 80)
+3. 002415 - 海康威视 (Score: 80)
+4. 000333 - 美的集团 (Score: 80)
+5. 600519 - 贵州茅台 (Score: 75)
+
+**Root Cause Analysis:**
+The database (Supabase) stores the recommendations. The stored data from the last generation only contains 5 stocks. The `strategy_service.generate_daily_recommendations(top_n=10)` function is called with top_n=10, but the database may have been populated before this change.
+
+**Resolution Required:**
+- Trigger a new recommendation generation via POST /api/v1/recommendations/generate
+- Or update the database records
+
+#### TC004: Stock Search - FAIL
+- **Endpoint**: GET /api/v1/stock/search?q=茅台
+- **Expected**: Search results with 600519
+- **Actual**: 404 error - "无法获取股票 search 的数据，请检查代码是否正确"
+- **HTTP Code**: 404
+- **Status**: FAIL
+- **Severity**: CRITICAL
+
+**Root Cause Analysis:**
+FastAPI route priority issue. The route `/stock/{code}` is defined BEFORE `/stock/search`, so "search" is interpreted as a stock code parameter.
+
+**Code Location:** `/backend/app/api/stock.py`
+- Line 26: `@router.get("/stock/{code}")` - This catches all requests including `/stock/search`
+- Line 300: `@router.get("/stock/search")` - Never reached
+
+**Resolution Required:**
+Move the `/stock/search` route BEFORE `/stock/{code}` route, or use a different URL pattern like `/stocks/search`.
+
+#### TC005: Stock Details - PASS (with issues)
+- **Endpoint**: GET /api/v1/stock/600519?ai_analysis=true&refresh=true
+- **HTTP Code**: 200
+- **Response Time**: ~3s (cached)
+
+**Validation Results:**
+| Field | Expected | Actual | Status |
+|-------|----------|--------|--------|
+| code | 600519 | 600519 | PASS |
+| name | 贵州茅台 | 贵州茅台 | PASS |
+| price | Numeric | 1515.01 | PASS |
+| change | Numeric | 8.14 | PASS |
+| prev_close | Numeric | None/Missing | WARN |
+| indicators | Present | Present | PASS |
+| suggestion | Present | Present | PASS |
+| ai_analysis | Present | Present (when requested) | PASS |
+
+**Issues Found:**
+1. `prev_close` field returns `None` in API response despite being set in code
+2. Without `ai_analysis=true` parameter, `ai_analysis` is not included in cached responses
+
+#### TC006: Change Calculation Validation - UNABLE TO VERIFY
+- **Issue**: `prev_close` returns `None`, cannot verify calculation
+- **Expected Formula**: `change = (price - prev_close) / prev_close * 100`
+- **Status**: BLOCKED
+- **Note**: The eastmoney_service.py correctly returns prev_close, but it may be lost somewhere in the response chain
+
+#### TC007: TypeScript Build - PASS
+- **Command**: `npx tsc --noEmit`
+- **Result**: No type errors
+- **Status**: PASS
+
+### E2E Test Summary
+
+| Test Case | Status | Severity |
+|-----------|--------|----------|
+| TC001: Health Check | PASS | - |
+| TC002: Market Overview | PASS | - |
+| TC003: Recommendations (10 stocks) | FAIL | MAJOR |
+| TC004: Stock Search | FAIL | CRITICAL |
+| TC005: Stock Details | PASS (with warnings) | - |
+| TC006: Change Calculation | BLOCKED | WARN |
+| TC007: TypeScript Build | PASS | - |
+
+**Pass Rate:** 4/7 (57%)
+**Critical Issues Found:** 1 (Stock Search API broken)
+**Major Issues Found:** 1 (Recommendations count mismatch)
 
 ---
 
@@ -183,12 +300,15 @@ Route (app)
 
 | Metric | Target | Current | Status |
 |--------|--------|---------|--------|
+| E2E API Test Pass Rate | 100% | 57% (4/7) | FAIL |
 | Test Coverage | 80% | 0% | FAIL |
 | Bug Fix Rate | 100% | N/A | N/A |
 | Code Review Pass Rate | 100% | N/A | N/A |
 | Documentation Completeness | 100% | 85% | WARN |
 | TypeScript Build | Pass | Pass | PASS |
 | Critical Security Issues | 0 | 2 | FAIL |
+| Critical Bug Issues | 0 | 1 | FAIL |
+| Major Bug Issues | 0 | 1 | FAIL |
 
 ---
 
@@ -198,6 +318,9 @@ Route (app)
 |----|------|-------------|----------|--------|------------|
 | SEC001 | Security | API Key hardcoded in ai_analysis_service.py | CRITICAL | Open | Move to env var |
 | SEC002 | Security | API Key hardcoded in glm_service.py | CRITICAL | Open | Move to env var |
+| BUG001 | Bug | Stock search API returns 404 (route priority issue) | CRITICAL | Open | Reorder routes in stock.py |
+| BUG002 | Bug | Recommendations returns 5 stocks instead of 10 | MAJOR | Open | Regenerate recommendations |
+| BUG003 | Bug | prev_close field missing from API response | MINOR | Open | Debug response chain |
 | CODE001 | Code Quality | Dead code: aiRankingsCache unused | MAJOR | Open | Remove or use |
 | CODE002 | Code Quality | Type inconsistency AIRankingItem | MAJOR | Open | Consolidate types |
 | TEST001 | Testing | No test coverage | MAJOR | Open | Add tests |
@@ -235,28 +358,52 @@ Route (app)
 
 ## Final Quality Assessment
 
-### Overall Score: 6/10
+### Overall Score: 5/10
 
 **Quality Dimension Ratings:**
-- Functionality: 4/5 - Core features work correctly
+- Functionality: 3/5 - Critical API bug (search broken), partial feature regression (5 vs 10 stocks)
 - Code Quality: 3/5 - Has security issues and dead code
-- Test Coverage: 1/5 - No tests found
+- Test Coverage: 1/5 - No automated tests found
 - Documentation: 4/5 - Good design doc, missing test strategy
 - Security: 2/5 - Critical API key exposure issue
 
-### Release Recommendation: CONDITIONAL PASS
+### Release Recommendation: NOT RECOMMENDED
+
+**Blocking Issues:**
+1. CRITICAL: Stock search API is completely broken (route priority bug)
+2. CRITICAL: API keys hardcoded in source code (security risk)
+3. MAJOR: Recommendations only returns 5 stocks, not 10 as specified
 
 **Conditions for Release:**
-1. MUST fix API key exposure before deployment
-2. SHOULD remove dead code
-3. SHOULD fix type inconsistencies
+1. MUST fix stock search route priority issue (`/stock/search` before `/stock/{code}`)
+2. MUST fix API key exposure (move to environment variables)
+3. MUST regenerate recommendations to include 10 stocks
+4. SHOULD remove dead code
+5. SHOULD fix type inconsistencies
 
 **Next Steps:**
-1. Project team to address CRITICAL security issues
-2. Add basic test coverage before next release
-3. Schedule follow-up QA review after fixes
+1. **Immediate (P0):**
+   - Fix route priority in `/backend/app/api/stock.py` - move search route before dynamic route
+   - Move API keys to environment variables
+   - Regenerate recommendations via POST /api/v1/recommendations/generate
+
+2. **Short-term (P1):**
+   - Clean up dead code in frontend
+   - Consolidate type definitions
+   - Debug prev_close field
+
+3. **Medium-term (P2):**
+   - Add automated test coverage
+   - Update DESIGN.md with testing strategy
+
+---
+
+## Appendix: Test Plan Reference
+
+See `TEST_PLAN.md` for detailed test plan and test case specifications.
 
 ---
 
 *QA Report generated by qa-guardian*
-*Report Version: 1.0*
+*Report Version: 1.1*
+*Last Updated: 2026-02-06*
