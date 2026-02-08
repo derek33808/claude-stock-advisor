@@ -23,9 +23,9 @@ _stock_analysis_cache: dict = {}
 _stock_cache_duration = timedelta(minutes=3)
 
 
-# 注意：搜索路由必须在动态路由 /stock/{code} 之前定义，否则 "search" 会被当作股票代码
-@router.get("/stock/search")
-async def search_stocks(q: str, limit: int = 20):
+# 搜索路由使用 /stocks/search (复数) 避免与 /stock/{code} 冲突
+@router.get("/stocks/search")
+async def search_stocks(q: str = Query(..., min_length=1, description="搜索关键词"), limit: int = 20):
     """
     搜索股票
 

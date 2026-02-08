@@ -260,7 +260,7 @@ export async function searchStocks(query: string, limit: number = 20): Promise<{
   count: number;
   results: SearchResult[];
 }> {
-  return apiRequest(`/stock/search?q=${encodeURIComponent(query)}&limit=${limit}`);
+  return apiRequest(`/stocks/search?q=${encodeURIComponent(query)}&limit=${limit}`);
 }
 
 /**
