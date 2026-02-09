@@ -2,14 +2,24 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
-from app.api import stock, recommendations, stats
+from app.api import (
+    stock,
+    recommendations,
+    stats,
+    comprehensive,
+    watchlist,
+    history,
+    token,
+    refresh
+)
+from app.scheduler import start_scheduler, stop_scheduler
 
 settings = get_settings()
 
 app = FastAPI(
     title=settings.app_name,
-    description="A股智能交易策略指导系统 API",
-    version="2.1.0",
+    description="A股智能交易策略指导系统 v2.0 API",
+    version="2.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
 )
@@ -27,6 +37,29 @@ app.add_middleware(
 app.include_router(stock.router, prefix="/api/v1", tags=["股票查询"])
 app.include_router(recommendations.router, prefix="/api/v1", tags=["推荐"])
 app.include_router(stats.router, prefix="/api/v1", tags=["统计"])
+app.include_router(comprehensive.router, prefix="/api/v1", tags=["综合分析"])
+app.include_router(watchlist.router, prefix="/api/v1", tags=["自选股"])
+app.include_router(history.router, prefix="/api/v1", tags=["历史记录"])
+app.include_router(token.router, prefix="/api/v1", tags=["Token监控"])
+app.include_router(refresh.router, prefix="/api/v1", tags=["全局刷新"])
+
+
+# Startup event
+@app.on_event("startup")
+async def startup_event():
+    """应用启动时执行"""
+    print("[Startup] Starting scheduler...")
+    start_scheduler()
+    print("[Startup] Stock Advisor v2.0 started successfully")
+
+
+# Shutdown event
+@app.on_event("shutdown")
+async def shutdown_event():
+    """应用关闭时执行"""
+    print("[Shutdown] Stopping scheduler...")
+    stop_scheduler()
+    print("[Shutdown] Stock Advisor v2.0 stopped")
 
 
 @app.get("/")
