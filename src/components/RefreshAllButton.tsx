@@ -1,37 +1,91 @@
 'use client';
 
 import { useState } from 'react';
-import { generateRecommendations } from '@/lib/api';
+import { API_BASE_URL } from '@/lib/api';
 import ProgressBar from './ProgressBar';
 
 export default function RefreshAllButton() {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [message, setMessage] = useState('');
+  const [progress, setProgress] = useState(0);
+  const [currentTask, setCurrentTask] = useState('');
 
   const handleRefresh = async () => {
     setLoading(true);
     setStatus('idle');
     setMessage('');
+    setProgress(0);
+    setCurrentTask('准备刷新...');
 
     try {
-      // 生成推荐（包含AI基本面分析）
-      const result = await generateRecommendations();
+      // 使用 SSE 调用全局刷新 API
+      const response = await fetch(`${API_BASE_URL}/refresh/all`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          user_id: 'default_user',
+          include_recommendations: true,  // 生成推荐
+          include_watchlist: true,        // 刷新自选股
+        }),
+      });
 
-      if (!result.success) {
-        setStatus('error');
-        setMessage(result.message || '生成推荐失败');
-        setLoading(false);
-        return;
+      if (!response.ok) {
+        throw new Error('刷新请求失败');
       }
 
-      setStatus('success');
-      setMessage(`成功刷新！生成 ${result.count || 5} 支智能推荐`);
+      // 处理 SSE 流
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
 
-      // 延迟刷新页面
-      setTimeout(() => {
-        window.location.reload();
-      }, 1500);
+      if (!reader) {
+        throw new Error('无法读取响应');
+      }
+
+      let recommendationsCount = 0;
+      let stocksCount = 0;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n');
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = JSON.parse(line.slice(6));
+
+            if (data.event === 'progress') {
+              setProgress(data.progress || 0);
+              setCurrentTask(data.current || '处理中...');
+
+              // 记录推荐数量
+              if (data.phase === 'recommendations_done') {
+                const match = data.current.match(/(\d+)支/);
+                if (match) recommendationsCount = parseInt(match[1]);
+              }
+            } else if (data.event === 'complete') {
+              setProgress(100);
+              stocksCount = data.stocks_refreshed || 0;
+              setStatus('success');
+              setMessage(
+                `刷新完成！生成 ${recommendationsCount} 支推荐${stocksCount > 0 ? `，刷新 ${stocksCount} 只自选股` : ''}`
+              );
+
+              // 延迟刷新页面
+              setTimeout(() => {
+                window.location.reload();
+              }, 1500);
+              return;
+            } else if (data.event === 'error') {
+              throw new Error(data.message || '刷新失败');
+            }
+          }
+        }
+      }
 
     } catch (err) {
       setStatus('error');
@@ -54,7 +108,7 @@ export default function RefreshAllButton() {
             : 'bg-gradient-to-r from-blue-500 to-purple-500 text-white hover:from-blue-600 hover:to-purple-600 shadow-sm'
           }
         `}
-        title="一键刷新：推荐 + AI排名 + 市场数据"
+        title="全局刷新：推荐 + 自选股 + 市场数据"
       >
         <span className={`${loading ? 'animate-spin' : ''}`}>
           {loading ? '⟳' : '↻'}
@@ -64,22 +118,27 @@ export default function RefreshAllButton() {
 
       {/* 加载中显示进度 */}
       {loading && (
-        <div className="absolute top-full right-0 mt-2 w-72 bg-white rounded-lg shadow-lg border border-gray-100 p-4 z-20">
-          <p className="text-sm text-gray-700 font-medium mb-3">
-            正在分析股票并生成智能推荐...
+        <div className="absolute top-full right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-100 p-4 z-20">
+          <p className="text-sm text-gray-700 font-medium mb-2">
+            全局刷新进行中...
           </p>
           <p className="text-xs text-gray-500 mb-3">
-            包含技术面 + AI基本面分析
+            {currentTask}
           </p>
 
-          <ProgressBar
-            estimatedSeconds={180}
-            showPercent
-            color="blue"
-          />
+          {/* 实时进度条 */}
+          <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
+            <div
+              className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+          <p className="text-xs text-gray-500 text-right mb-3">
+            {progress}%
+          </p>
 
-          <p className="text-xs text-gray-400 mt-2 text-center">
-            预计 2-3 分钟
+          <p className="text-xs text-gray-400 text-center">
+            正在刷新推荐和自选股，请稍候...
           </p>
         </div>
       )}
