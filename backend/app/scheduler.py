@@ -111,12 +111,16 @@ async def cache_warm_job():
         codes.update(watchlist_codes)
         print(f"[Scheduler] 📋 Watchlist: {len(watchlist_codes)} stocks (total unique: {len(codes)})")
 
-        # 逐个分析并写入缓存
+        # 逐个分析并写入缓存（17:25前必须结束，避免与17:30快照重叠）
         from app.api.stock import _do_full_analysis
         success_count = 0
         failed_count = 0
+        deadline = job_start_time.replace(hour=17, minute=25, second=0)
 
         for idx, code in enumerate(codes, 1):
+            if datetime.now() > deadline:
+                print(f"[Scheduler] ⏰ Deadline reached (17:25), stopping. Completed {idx-1}/{len(codes)}")
+                break
             try:
                 print(f"[Scheduler] 🔄 Warming cache {idx}/{len(codes)}: {code}")
                 await _do_full_analysis(code, ai_analysis=False)

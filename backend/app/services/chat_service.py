@@ -87,6 +87,17 @@ def build_chat_prompt(
 - 止损价：¥{suggestion.get('stop_loss', 0)}
 - 风险等级：{suggestion.get('risk_level', '未知')}
 - 建议仓位：{suggestion.get('position_ratio', '未知')}
+- 持有周期：{suggestion.get('holding_days', '未知')}
+"""
+        indicators = stock_context.get('indicators', {})
+        if indicators:
+            rsi = indicators.get('rsi', {})
+            boll = indicators.get('boll', {})
+            base_context += f"""
+## 风险相关指标
+- RSI状态：{rsi.get('level', '未知')}（值：{rsi.get('value', 50)}）
+- BOLL位置：{boll.get('position', '未知')}
+- 量比：{indicators.get('volume_ratio', 1)}
 """
 
     reasons = stock_context.get('reasons', [])

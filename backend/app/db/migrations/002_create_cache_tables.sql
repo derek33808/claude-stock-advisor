@@ -58,3 +58,4 @@ CREATE TABLE IF NOT EXISTS stock_chat_history (
 
 CREATE INDEX IF NOT EXISTS idx_sch_code_user ON stock_chat_history(code, user_id);
 CREATE INDEX IF NOT EXISTS idx_sch_created ON stock_chat_history(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_sch_user_created ON stock_chat_history(user_id, created_at DESC);
