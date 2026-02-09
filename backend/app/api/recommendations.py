@@ -15,7 +15,7 @@ async def get_today_recommendations():
     """
     获取今日推荐
 
-    返回：市场概览 + 推荐股票列表
+    返回：市场概览 + 推荐股票列表（价格为实时数据）
     """
     # 获取市场概览（带 fallback）
     market = eastmoney_service.get_market_indices_with_fallback()
@@ -24,8 +24,6 @@ async def get_today_recommendations():
     date, recommendations = await db.get_latest_recommendations()
 
     if not recommendations:
-        # 如果没有缓存的推荐，尝试实时生成
-        # 注意：这可能比较慢
         return {
             "date": datetime.now().strftime("%Y-%m-%d"),
             "update_time": datetime.now().strftime("%H:%M"),
@@ -34,9 +32,19 @@ async def get_today_recommendations():
             "message": "暂无推荐数据，请等待每日更新"
         }
 
+    # 用实时行情更新价格和涨跌幅（数据库里存的是推荐生成时的旧数据）
+    for rec in recommendations:
+        try:
+            realtime = eastmoney_service.get_realtime(rec["code"])
+            if realtime:
+                rec["price"] = realtime["price"]
+                rec["change"] = realtime["change"]
+        except Exception:
+            pass  # 获取失败则保留数据库中的旧价格
+
     return {
         "date": date,
-        "update_time": "17:30",
+        "update_time": datetime.now().strftime("%H:%M"),
         "market": market,
         "recommendations": recommendations,
     }
