@@ -6,6 +6,7 @@ import { getStockAnalysis, StockAnalysis, wakeUpBackend, isBackendPossiblyAsleep
 import Disclaimer from './Disclaimer';
 import WatchlistButton from './WatchlistButton';
 import ProgressBar from './ProgressBar';
+import StockChatPanel from './StockChatPanel';
 
 interface StockDetailClientProps {
   code: string;
@@ -319,6 +320,9 @@ export default function StockDetailClient({ code }: StockDetailClientProps) {
           </Link>
         </div>
       </section>
+
+      {/* AI 问答 */}
+      <StockChatPanel code={stock.code} stockName={stock.name} />
 
       {/* 风险提示 */}
       <Disclaimer />

@@ -10,7 +10,8 @@ from app.api import (
     watchlist,
     history,
     token,
-    refresh
+    refresh,
+    chat,
 )
 from app.scheduler import start_scheduler, stop_scheduler
 
@@ -18,8 +19,8 @@ settings = get_settings()
 
 app = FastAPI(
     title=settings.app_name,
-    description="A股智能交易策略指导系统 v2.0 API",
-    version="2.0.0",
+    description="A股智能交易策略指导系统 v3.0 API",
+    version="3.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
 )
@@ -42,6 +43,7 @@ app.include_router(watchlist.router, prefix="/api/v1", tags=["自选股"])
 app.include_router(history.router, prefix="/api/v1", tags=["历史记录"])
 app.include_router(token.router, prefix="/api/v1", tags=["Token监控"])
 app.include_router(refresh.router, prefix="/api/v1", tags=["全局刷新"])
+app.include_router(chat.router, prefix="/api/v1", tags=["AI问答"])
 
 
 # Startup event

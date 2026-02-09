@@ -11,9 +11,10 @@ from app.services import (
     prediction_tracking_service,
     comprehensive_analysis_service,
     eastmoney_service,
-    strategy_service
+    strategy_service,
+    cache_service,
 )
-from app.db.supabase import supabase
+from app.db.supabase import supabase, get_supabase
 from app.db import supabase as db
 
 scheduler = AsyncIOScheduler()
@@ -73,6 +74,73 @@ async def daily_recommendations_job():
         print(f"[Scheduler] Error: {type(e).__name__}: {str(e)}")
         print(f"[Scheduler] ========================================")
         # TODO: 发送告警通知（可接入钉钉/企业微信/邮件）
+        import traceback
+        print(f"[Scheduler] Stack trace:\n{traceback.format_exc()}")
+
+
+@scheduler.scheduled_job('cron', hour=17, minute=10, id='cache_warm')
+async def cache_warm_job():
+    """
+    每日17:10 缓存预热
+    在推荐生成(17:00)之后执行
+    预热推荐股 + 自选股的完整分析缓存
+    """
+    job_start_time = datetime.now()
+    print(f"[Scheduler] ========================================")
+    print(f"[Scheduler] Cache warm-up job started")
+    print(f"[Scheduler] Date: {date.today()}, Time: {job_start_time.strftime('%H:%M:%S')}")
+    print(f"[Scheduler] ========================================")
+
+    if not trading_calendar.is_trading_day(date.today()):
+        print("[Scheduler] ⏭️  Not a trading day, skipping cache warm-up")
+        return
+
+    try:
+        codes = set()
+
+        # 推荐股
+        _, recs = await db.get_latest_recommendations()
+        for rec in recs:
+            codes.add(rec['code'])
+        print(f"[Scheduler] 📋 Recommendations: {len(recs)} stocks")
+
+        # 自选股
+        sb = get_supabase()
+        result = sb.table('watchlist').select('code').execute()
+        watchlist_codes = set(item['code'] for item in result.data) if result.data else set()
+        codes.update(watchlist_codes)
+        print(f"[Scheduler] 📋 Watchlist: {len(watchlist_codes)} stocks (total unique: {len(codes)})")
+
+        # 逐个分析并写入缓存
+        from app.api.stock import _do_full_analysis
+        success_count = 0
+        failed_count = 0
+
+        for idx, code in enumerate(codes, 1):
+            try:
+                print(f"[Scheduler] 🔄 Warming cache {idx}/{len(codes)}: {code}")
+                await _do_full_analysis(code, ai_analysis=False)
+                success_count += 1
+            except Exception as e:
+                failed_count += 1
+                print(f"[Scheduler] ❌ Cache warm failed for {code}: {e}")
+                continue
+
+        # 批量获取实时价格并更新内存缓存
+        batch_quotes = eastmoney_service.get_batch_realtime(list(codes))
+        cache_service.set_cached_quotes_batch(batch_quotes)
+
+        total_time = (datetime.now() - job_start_time).total_seconds()
+        print(f"[Scheduler] ========================================")
+        print(f"[Scheduler] ✅ Cache warm-up completed in {total_time:.2f}s")
+        print(f"[Scheduler] Success: {success_count}/{len(codes)}")
+        if failed_count > 0:
+            print(f"[Scheduler] ⚠️  Failed: {failed_count}/{len(codes)}")
+        print(f"[Scheduler] ========================================")
+
+    except Exception as e:
+        error_time = (datetime.now() - job_start_time).total_seconds()
+        print(f"[Scheduler] ❌ Cache warm-up failed after {error_time:.2f}s: {e}")
         import traceback
         print(f"[Scheduler] Stack trace:\n{traceback.format_exc()}")
 

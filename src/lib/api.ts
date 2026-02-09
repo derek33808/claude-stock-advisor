@@ -453,3 +453,61 @@ export async function getAccuracyStats(
 }> {
   return apiRequest(`/analysis/accuracy/${code}?user_id=${userId}`);
 }
+
+/**
+ * AI 问答响应
+ */
+export interface ChatResponse {
+  code?: string;
+  question?: string;
+  answer?: string;
+  tokens_used?: number;
+  remaining_quota?: number;
+  cached?: boolean;
+  created_at?: string;
+  error?: boolean;
+  message?: string;
+}
+
+/**
+ * 问答历史项
+ */
+export interface ChatHistoryItem {
+  id: string;
+  question: string;
+  answer: string;
+  template?: string;
+  tokens_used: number;
+  created_at: string;
+}
+
+/**
+ * AI 股票问答
+ */
+export async function askStockQuestion(
+  code: string,
+  question: string,
+  template?: string,
+  userId: string = 'default_user',
+): Promise<ChatResponse> {
+  return apiRequest(`/stock/${code}/chat`, {
+    method: 'POST',
+    body: JSON.stringify({ question, template, user_id: userId }),
+  });
+}
+
+/**
+ * 获取问答历史
+ */
+export async function getChatHistory(
+  code: string,
+  userId: string = 'default_user',
+  limit: number = 20,
+): Promise<{
+  code: string;
+  count: number;
+  remaining_quota: number;
+  history: ChatHistoryItem[];
+}> {
+  return apiRequest(`/stock/${code}/chat/history?user_id=${userId}&limit=${limit}`);
+}
