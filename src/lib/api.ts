@@ -3,7 +3,7 @@
  */
 
 // 后端 API 基础 URL (包含 /api/v1 前缀)
-const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000') + '/api/v1';
+export const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000') + '/api/v1';
 const HEALTH_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000') + '/health';
 
 // 后端状态缓存
@@ -233,20 +233,25 @@ export async function getRecommendationsByDate(date: string): Promise<Recommenda
 }
 
 /**
- * 获取股票分析（带缓存）
+ * 获取股票分析（三层缓存优先）
+ * @param code 股票代码
+ * @param refresh 强制刷新（跳过所有缓存）
  */
-export async function getStockAnalysis(code: string): Promise<StockAnalysis> {
-  // 检查缓存
-  const cached = stockCache.get(code);
-  if (cached && Date.now() - cached.timestamp < STOCK_CACHE_MS) {
-    console.log(`[Cache] Using cached data for ${code}`);
-    return cached.data;
+export async function getStockAnalysis(code: string, refresh: boolean = false): Promise<StockAnalysis> {
+  // 非刷新模式：检查前端缓存
+  if (!refresh) {
+    const cached = stockCache.get(code);
+    if (cached && Date.now() - cached.timestamp < STOCK_CACHE_MS) {
+      console.log(`[Cache] Using frontend cached data for ${code}`);
+      return cached.data;
+    }
   }
 
-  // 请求新数据
-  const data = await apiRequest<StockAnalysis>(`/stock/${code}`);
+  // 请求后端（后端有 L1 内存 + L2 Supabase 缓存）
+  const refreshParam = refresh ? '?refresh=true' : '';
+  const data = await apiRequest<StockAnalysis>(`/stock/${code}${refreshParam}`);
 
-  // 存入缓存
+  // 存入前端缓存
   stockCache.set(code, { data, timestamp: Date.now() });
 
   return data;
@@ -363,6 +368,18 @@ export async function getAIModelStatus(): Promise<{
     throw new Error('无法获取 AI 模型状态');
   }
   return response.json();
+}
+
+/**
+ * 批量获取股票分析（缓存优先 + 实时价格）
+ * 用于自选股列表快速加载
+ */
+export async function getBatchStockAnalyses(codes: string[]): Promise<{
+  count: number;
+  stocks: StockAnalysis[];
+}> {
+  if (codes.length === 0) return { count: 0, stocks: [] };
+  return apiRequest(`/stocks/batch?codes=${codes.join(',')}`);
 }
 
 /**

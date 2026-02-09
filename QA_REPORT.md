@@ -4,8 +4,8 @@
 - **Project Name**: Stock Advisor v2.0 (A Stock Trading Strategy System)
 - **QA Reviewer**: qa-guardian
 - **Report Date**: 2026-02-06 (Created)
-- **Last Updated**: 2026-02-09 (Final Audit)
-- **Current Status**: FINAL AUDIT COMPLETED
+- **Last Updated**: 2026-02-09 (P0/P1 Feature Code Review)
+- **Current Status**: P0/P1 FEATURE CODE REVIEW COMPLETED
 
 ---
 
@@ -423,6 +423,84 @@ The system functions correctly in production with all 14 E2E tests passing. The 
 
 ---
 
+---
+
+## 11. P0/P1 Feature Code Review - 2026-02-09
+
+### Review Scope
+
+Code review for three newly completed features:
+- **Task #39** [P0]: History Tracking Frontend (HistoryClient.tsx, history page, api.ts additions, StockDetailClient.tsx)
+- **Task #40** [P1]: Recommendation Auto-Scheduling (scheduler.py - daily_recommendations_job)
+- **Task #41** [P1]: Global Refresh Extension (refresh.py, RefreshAllButton.tsx)
+
+### 8-Dimension Scores (Feature-Specific)
+
+| Dimension | Score | Notes |
+|-----------|-------|-------|
+| Design | 4/5 | Good separation; SSE pattern appropriate for long-running refresh |
+| Functionality | 3/5 | Critical: API_BASE_URL not exported; SSE parse unprotected; scheduler no timezone |
+| Complexity | 4/5 | HistoryClient 311 lines acceptable; refresh generator slightly complex |
+| Tests | 1/5 | Zero tests for any new feature (~700 new LOC) |
+| Naming | 4/5 | Clear conventions; Chinese comments helpful for domain context |
+| Comments | 4/5 | Good docstrings on scheduler jobs and endpoints |
+| Style | 4/5 | Consistent Tailwind and Python patterns |
+| Documentation | 3/5 | API functions documented; PROGRESS.md not updated |
+
+**Feature Review Total: 27/40 = 67.5%**
+
+### Critical Issues (Block Release)
+
+| ID | File | Line | Description |
+|----|------|------|-------------|
+| CR4-C001 | `src/lib/api.ts` | 6 | `API_BASE_URL` declared as `const` (not `export const`) but imported by `RefreshAllButton.tsx:4`. Build will fail or import resolves to `undefined`. Fix: add `export` keyword. |
+| CR4-C002 | `src/components/RefreshAllButton.tsx` | 59 | `JSON.parse(line.slice(6))` has no try-catch. SSE chunks can be split across reads, yielding incomplete JSON. This will crash the component with uncaught exception. Fix: wrap in try-catch and implement SSE buffer logic. |
+
+### Major Issues (Must Fix)
+
+| ID | File | Line | Description |
+|----|------|------|-------------|
+| CR4-M001 | `backend/app/scheduler.py` | 22,59,107 | No `timezone` parameter on cron jobs. Render servers default to UTC; jobs would fire at UTC 17:00 (Beijing 01:00 AM), useless for A-stock market. Fix: add `timezone='Asia/Shanghai'`. |
+| CR4-M002 | `backend/app/api/refresh.py` | 23,54-58 | `_active_refreshes` dict is not thread/async-safe. Race condition: two concurrent requests can both pass the `if user_id in` check. Fix: use `asyncio.Lock()`. |
+| CR4-M003 | `backend/app/scheduler.py` | all | Uses `print()` for logging. No log levels, timestamps, or ability to filter. Fix: use `logging.getLogger(__name__)`. |
+| CR4-M004 | `src/components/HistoryClient.tsx` | 52-53 | `loadData` defined as regular function but missing from `useEffect` deps. React anti-pattern. Fix: wrap with `useCallback`. |
+| CR4-M005 | `src/components/RefreshAllButton.tsx` | 40-88 | No `AbortController` cleanup for SSE fetch. Component unmount during streaming causes setState on unmounted component. Fix: add AbortController. |
+| CR4-M006 | Project-wide | - | Zero test coverage for 700+ new lines of code. |
+
+### Minor Issues
+
+| ID | File | Line | Description |
+|----|------|------|-------------|
+| CR4-m001 | `src/components/HistoryClient.tsx` | 12-32 | `HistoryRecord` interface duplicates inline type from `api.ts:394-416`. Maintenance risk. |
+| CR4-m002 | `src/lib/api.ts` | 405 | `analysis_content: any` bypasses type safety. |
+| CR4-m003 | `api.ts:388,426`, `RefreshAllButton.tsx:29` | - | `'default_user'` hardcoded in 3 places. |
+| CR4-m004 | `src/components/RefreshAllButton.tsx` | 81 | `window.location.reload()` is poor SPA UX. |
+| CR4-m005 | `backend/app/api/refresh.py` | 97 | `len(recommendations)` will throw if `recommendations` is `None`. |
+
+### Nit Issues
+
+| ID | File | Description |
+|----|------|-------------|
+| CR4-n001 | `refresh.py:131` | Failed stocks don't increment `tasks_completed`; progress never reaches 100% if any fail. |
+| CR4-n002 | `refresh.py:124` | SSE heartbeat comment not documented for frontend. |
+| CR4-n003 | `api.ts:389` | Magic number `30` for default days. |
+
+### Review Verdict: CONDITIONALLY APPROVED
+
+**Must fix before next deployment:** CR4-C001, CR4-C002, CR4-M001
+
+**Must fix within current sprint:** CR4-M002 through CR4-M006
+
+### Positive Highlights
+
+1. `Promise.all` parallel loading in HistoryClient (line 61) with graceful degradation via `.catch(() => null)`
+2. Trading day check in all scheduler jobs prevents wasted API calls
+3. SSE heartbeat mechanism prevents connection timeout
+4. Per-stock error tolerance in both scheduler and refresh endpoint
+5. Clean history UI with evaluation status badges (correct/incorrect predictions)
+
+---
+
 *QA Report generated by qa-guardian*
-*Report Version: 3.0 (Final Audit)*
+*Report Version: 4.0 (P0/P1 Feature Code Review)*
 *Last Updated: 2026-02-09*

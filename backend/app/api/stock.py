@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from app.services import eastmoney_service, indicator_service, strategy_service
 from app.services.glm_service import generate_summary_with_fallback
 from app.services.ai_analysis_service import get_full_ai_analysis, calculate_ai_ranking_score, get_ai_model_status
+from app.services import cache_service
 from app.models.schemas import StockAnalysis
 
 router = APIRouter()
@@ -54,29 +55,55 @@ async def get_stock_analysis(
     refresh: bool = Query(default=False, description="强制刷新缓存")
 ):
     """
-    获取股票完整分析
+    获取股票完整分析（三层缓存优先）
 
     - code: 股票代码（如 600519, 000001, 512930）
-    - ai_analysis: 是否包含 AI 智能分析（公司分析、基本面、AI评分）
-    - refresh: 强制刷新缓存
+    - ai_analysis: 是否包含 AI 智能分析
+    - refresh: 强制刷新缓存（跳过所有缓存，重新分析）
 
-    返回：基本信息、实时行情、技术指标、交易建议、AI分析（可选）
-    数据缓存 3 分钟（盘中数据变化快）
+    缓存策略：L1 内存(30秒) -> L2 Supabase(4小时) -> L3 数据源(实时)
     """
     global _stock_analysis_cache
 
-    # 缓存 key
-    cache_key = f"{code}_{ai_analysis}"
+    # ===== 非刷新模式：尝试从缓存读取 =====
+    if not refresh:
+        # L1: 内存缓存 (3分钟)
+        cache_key = f"{code}_{ai_analysis}"
+        if cache_key in _stock_analysis_cache:
+            cached = _stock_analysis_cache[cache_key]
+            if datetime.now() - cached["updated_at"] < _stock_cache_duration:
+                response = cached["data"].copy()
+                response["cached"] = True
+                response["cache_time"] = cached["updated_at"].strftime("%H:%M:%S")
+                return response
 
-    # 检查缓存
-    if not refresh and cache_key in _stock_analysis_cache:
-        cached = _stock_analysis_cache[cache_key]
-        if datetime.now() - cached["updated_at"] < _stock_cache_duration:
-            # 返回缓存数据，但更新实时价格
-            response = cached["data"].copy()
-            response["cached"] = True
-            response["cache_time"] = cached["updated_at"].strftime("%H:%M:%S")
+        # L2: Supabase 持久缓存 (4小时)
+        db_cached = cache_service.get_cached_analysis(code)
+        if db_cached:
+            # 获取实时价格（内存缓存30秒）
+            realtime = cache_service.get_cached_quote(code)
+            if not realtime:
+                realtime = eastmoney_service.get_realtime(code)
+                if realtime:
+                    cache_service.set_cached_quote(code, realtime)
+
+            response = cache_service.build_response_from_cache(db_cached, realtime)
+
+            # 回填 L1 内存缓存
+            _stock_analysis_cache[cache_key] = {
+                "data": response,
+                "updated_at": datetime.now()
+            }
+
             return response
+
+    # ===== L3: 完整分析（缓存未命中或强制刷新） =====
+    return await _do_full_analysis(code, ai_analysis)
+
+
+async def _do_full_analysis(code: str, ai_analysis: bool = True) -> dict:
+    """执行完整的股票分析流程并写入所有缓存层"""
+    global _stock_analysis_cache
 
     # 获取历史数据
     df = eastmoney_service.get_history(code, days=60)
@@ -96,17 +123,11 @@ async def get_stock_analysis(
 
     # 计算技术指标
     indicators = indicator_service.calculate_indicators(df)
-
-    # 生成交易建议
     suggestion = indicator_service.calculate_trading_suggestion(df, indicators)
-
-    # 生成推荐理由
     reasons_raw = indicator_service.generate_reasons(indicators)
-
-    # 计算综合评分
     score = indicator_service.calculate_score(indicators, suggestion)
 
-    # 转换指标格式以匹配前端期望
+    # 转换指标格式
     macd = indicators.get("macd", {})
     rsi = indicators.get("rsi", {})
     ma = indicators.get("ma", {})
@@ -114,7 +135,6 @@ async def get_stock_analysis(
     boll = indicators.get("boll", {})
     vol = indicators.get("volume", {})
 
-    # 计算 BOLL 位置
     close_price = realtime["price"]
     boll_upper = boll.get("upper", 0)
     boll_lower = boll.get("lower", 0)
@@ -164,7 +184,6 @@ async def get_stock_analysis(
         "volume_ratio": vol.get("ratio", 1),
     }
 
-    # 转换建议格式
     formatted_suggestion = {
         "action": suggestion.get("action", "观望"),
         "buy_price": {
@@ -181,7 +200,6 @@ async def get_stock_analysis(
         "risk_level": suggestion.get("risk_level", "中"),
     }
 
-    # 合并推荐理由为数组
     reasons = []
     for reason in reasons_raw.get("technical", []):
         reasons.append(f"技术面: {reason}")
@@ -192,7 +210,6 @@ async def get_stock_analysis(
     if not reasons:
         reasons = ["数据正在分析中"]
 
-    # 生成交易指导摘要（优先使用 AI，失败时用模板兜底）
     summary = generate_summary_with_fallback(
         name=realtime["name"],
         code=code,
@@ -204,7 +221,6 @@ async def get_stock_analysis(
         reasons=reasons,
     )
 
-    # 基础响应
     response = {
         "code": code,
         "name": realtime["name"],
@@ -214,7 +230,7 @@ async def get_stock_analysis(
         "open": realtime["open"],
         "high": realtime["high"],
         "low": realtime["low"],
-        "prev_close": realtime.get("prev_close", 0),  # 昨收
+        "prev_close": realtime.get("prev_close", 0),
         "volume": realtime["volume"],
         "amount": realtime["amount"],
         "market_cap": realtime.get("market_cap", 0),
@@ -225,7 +241,6 @@ async def get_stock_analysis(
         "summary": summary,
     }
 
-    # 如果需要 AI 智能分析
     if ai_analysis:
         ai_result = get_full_ai_analysis(
             name=realtime["name"],
@@ -240,7 +255,6 @@ async def get_stock_analysis(
         )
         response["ai_analysis"] = ai_result
 
-        # 计算 AI 排名分数
         ai_ranking_score = calculate_ai_ranking_score(
             technical_score=score,
             ai_score=ai_result.get("ai_recommendation", {}).get("ai_score", score),
@@ -250,14 +264,93 @@ async def get_stock_analysis(
         )
         response["ai_ranking_score"] = ai_ranking_score
 
-    # 保存到缓存
+    # ===== 写入所有缓存层 =====
+
+    # L1: 内存缓存
+    cache_key = f"{code}_{ai_analysis}"
     _stock_analysis_cache[cache_key] = {
         "data": response,
         "updated_at": datetime.now()
     }
 
+    # L1: 实时价格内存缓存
+    cache_service.set_cached_quote(code, realtime)
+
+    # L2: Supabase 持久缓存
+    cache_service.save_analysis_cache(code, response)
+
     response["cached"] = False
     return response
+
+
+@router.get("/stocks/batch")
+async def get_batch_stock_analyses(
+    codes: str = Query(..., description="逗号分隔的股票代码列表"),
+):
+    """
+    批量获取股票分析（缓存优先 + 实时价格）
+    用于自选股列表快速加载
+
+    - codes: 逗号分隔的股票代码（如 600519,000858,300750）
+    - 最多 20 只
+    """
+    code_list = [c.strip() for c in codes.split(",") if c.strip()]
+    if not code_list:
+        return {"count": 0, "stocks": []}
+
+    code_list = code_list[:20]
+
+    # 1. 批量获取 Supabase 缓存
+    cached_analyses = cache_service.get_cached_analyses_batch(code_list)
+
+    # 2. 批量获取实时价格（单次 HTTP）
+    batch_quotes = eastmoney_service.get_batch_realtime(code_list)
+    cache_service.set_cached_quotes_batch(batch_quotes)
+
+    results = []
+    uncached_codes = []
+
+    for code in code_list:
+        cached = cached_analyses.get(code)
+        if cached:
+            realtime = batch_quotes.get(code)
+            response = cache_service.build_response_from_cache(cached, realtime)
+            results.append(response)
+        else:
+            uncached_codes.append(code)
+
+    # 3. 未缓存的股票执行完整分析
+    for code in uncached_codes:
+        try:
+            analysis = await _do_full_analysis(code, ai_analysis=False)
+            results.append(analysis)
+        except Exception:
+            quote = batch_quotes.get(code)
+            if quote:
+                results.append({
+                    "code": code,
+                    "name": quote.get("name", code),
+                    "industry": "",
+                    "price": quote.get("price", 0),
+                    "change": quote.get("change", 0),
+                    "score": 0,
+                    "indicators": {},
+                    "suggestion": {
+                        "action": "数据加载中",
+                        "buy_price": {"low": 0, "high": 0},
+                        "stop_loss": 0,
+                        "take_profit": {"target1": 0, "target2": 0},
+                        "holding_days": "-",
+                        "position_ratio": "-",
+                        "risk_level": "medium",
+                    },
+                    "reasons": ["数据正在加载中"],
+                })
+
+    return {
+        "count": len(results),
+        "stocks": results,
+    }
 
 
 @router.post("/stocks/prefetch")

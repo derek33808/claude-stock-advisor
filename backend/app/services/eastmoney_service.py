@@ -402,6 +402,90 @@ def get_realtime(code: str) -> Optional[dict]:
     return None
 
 
+def get_batch_realtime(codes: list[str]) -> dict[str, dict]:
+    """
+    批量获取多只股票实时行情（单次HTTP请求）
+    利用东方财富 ulist.np API 支持多 secid 的特性
+
+    Args:
+        codes: 股票代码列表
+
+    Returns:
+        dict[code] -> realtime dict
+    """
+    if not codes:
+        return {}
+
+    # 构建 secids: "1.600519,0.000858,..."
+    secids = ",".join([f"{_get_market_code(c)}.{c}" for c in codes])
+    url = (f"https://push2.eastmoney.com/api/qt/ulist.np/get?"
+           f"fltt=2&secids={secids}"
+           f"&fields=f2,f3,f12,f14,f15,f16,f17,f18,f5,f6,f60,f116")
+
+    for retry in range(MAX_RETRIES):
+        try:
+            req = urllib.request.Request(url)
+            req.add_header('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36')
+            req.add_header('Referer', 'https://quote.eastmoney.com')
+
+            with urllib.request.urlopen(req, timeout=REQUEST_TIMEOUT) as response:
+                content = response.read().decode('utf-8')
+
+            data = json.loads(content)
+            if data.get('rc') != 0 or not data.get('data') or not data['data'].get('diff'):
+                return {}
+
+            result = {}
+            for item in data['data']['diff']:
+                code = str(item.get('f12', ''))
+                if not code:
+                    continue
+
+                is_etf = code.startswith('5') or code.startswith('159')
+                price_divisor = 1000 if is_etf else 100
+
+                price = item.get('f2', 0)
+                if isinstance(price, str):
+                    price = float(price) if price != '-' else 0
+                change = item.get('f3', 0)
+                if isinstance(change, str):
+                    change = float(change) if change != '-' else 0
+
+                name = item.get('f14', '')
+                info = STOCK_INFO.get(code, {"name": name, "industry": ""})
+
+                prev_close_raw = item.get('f18', 0) or item.get('f60', 0)
+                if isinstance(prev_close_raw, str):
+                    prev_close_raw = float(prev_close_raw) if prev_close_raw != '-' else 0
+
+                result[code] = {
+                    "code": code,
+                    "name": name or info["name"],
+                    "price": round(price, 3) if is_etf else round(price, 2),
+                    "change": round(change, 2),
+                    "open": round(item.get('f17', 0) / price_divisor, 2) if item.get('f17') and not isinstance(item.get('f17'), str) else 0,
+                    "high": round(item.get('f15', 0) / price_divisor, 2) if item.get('f15') and not isinstance(item.get('f15'), str) else 0,
+                    "low": round(item.get('f16', 0) / price_divisor, 2) if item.get('f16') and not isinstance(item.get('f16'), str) else 0,
+                    "prev_close": round(prev_close_raw / price_divisor, 2) if prev_close_raw and not isinstance(prev_close_raw, str) else 0,
+                    "volume": item.get('f5', 0) if not isinstance(item.get('f5'), str) else 0,
+                    "amount": item.get('f6', 0) if not isinstance(item.get('f6'), str) else 0,
+                    "market_cap": round(item.get('f116', 0) / 100000000, 2) if item.get('f116') and not isinstance(item.get('f116'), str) else 0,
+                    "industry": info.get("industry", ""),
+                }
+
+            print(f"[EastMoney] Batch realtime: {len(result)}/{len(codes)} stocks fetched")
+            return result
+
+        except Exception as e:
+            if retry < MAX_RETRIES - 1:
+                time.sleep(0.5)
+                continue
+            print(f"[EastMoney] Error fetching batch realtime: {e}")
+            return {}
+
+    return {}
+
+
 def get_market_indices_with_fallback() -> dict:
     """
     获取大盘指数，东方财富失败时自动切换到 Yahoo Finance

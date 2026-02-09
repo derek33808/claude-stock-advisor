@@ -14,28 +14,34 @@ interface StockDetailClientProps {
 export default function StockDetailClient({ code }: StockDetailClientProps) {
   const [stock, setStock] = useState<StockAnalysis | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loadingMessage, setLoadingMessage] = useState('加载股票数据中...');
   const [retryCount, setRetryCount] = useState(0);
 
-  const fetchStock = useCallback(async () => {
+  const fetchStock = useCallback(async (forceRefresh: boolean = false) => {
     try {
-      setLoading(true);
+      if (forceRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
       setError(null);
 
-      // 检查后端是否可能休眠
-      if (isBackendPossiblyAsleep()) {
+      // 检查后端是否可能休眠（仅首次加载时）
+      if (!forceRefresh && isBackendPossiblyAsleep()) {
         setLoadingMessage('正在唤醒后端服务...');
         await wakeUpBackend();
       }
 
-      setLoadingMessage('正在获取股票数据...');
-      const data = await getStockAnalysis(code);
+      setLoadingMessage(forceRefresh ? '正在重新分析...' : '正在获取股票数据...');
+      const data = await getStockAnalysis(code, forceRefresh);
       setStock(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : '加载失败');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, [code]);
 
@@ -45,6 +51,24 @@ export default function StockDetailClient({ code }: StockDetailClientProps) {
 
   const handleRetry = () => {
     setRetryCount(c => c + 1);
+  };
+
+  const handleRefresh = () => {
+    fetchStock(true);
+  };
+
+  // 计算缓存年龄提示
+  const getCacheHint = () => {
+    if (!stock) return null;
+    const cacheInfo = (stock as unknown as Record<string, unknown>).cache_info as Record<string, unknown> | undefined;
+    if (!cacheInfo?.cached) return null;
+    const updatedAt = cacheInfo.analysis_updated_at as string;
+    if (!updatedAt) return null;
+    const ageMs = Date.now() - new Date(updatedAt).getTime();
+    const ageMin = Math.round(ageMs / 60000);
+    if (ageMin < 1) return '刚刚更新';
+    if (ageMin < 60) return `${ageMin}分钟前更新`;
+    return `${Math.round(ageMin / 60)}小时前更新`;
   };
 
   // 加载中状态
@@ -141,13 +165,37 @@ export default function StockDetailClient({ code }: StockDetailClientProps) {
 
   return (
     <main className="max-w-lg mx-auto px-4 py-6">
-      {/* 返回按钮 */}
+      {/* 返回按钮 + 缓存状态 */}
       <div className="flex justify-between items-center mb-4">
         <Link href="/" className="inline-flex items-center text-blue-500 text-sm">
           ← 返回首页
         </Link>
-        <WatchlistButton code={stock.code} name={stock.name} size="md" />
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 disabled:opacity-50 transition-colors"
+          >
+            {refreshing ? (
+              <>
+                <span className="animate-spin">⟳</span>
+                分析中...
+              </>
+            ) : (
+              <>⟳ 刷新分析</>
+            )}
+          </button>
+          <WatchlistButton code={stock.code} name={stock.name} size="md" />
+        </div>
       </div>
+
+      {/* 缓存状态提示 */}
+      {getCacheHint() && (
+        <div className="mb-3 flex items-center justify-between px-3 py-2 bg-gray-50 rounded-lg text-xs text-gray-500">
+          <span>分析数据 · {getCacheHint()}</span>
+          <span className="text-green-500">行情实时</span>
+        </div>
+      )}
 
       {/* 股票基本信息 */}
       <header className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-4">

@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useWatchlist } from '@/lib/watchlist-context';
 import { StockRecommendation } from '@/lib/types';
-import { getStockAnalysis, prefetchStocks, StockAnalysis } from '@/lib/api';
+import { getBatchStockAnalyses, prefetchStocks, StockAnalysis } from '@/lib/api';
 import StockCard from './StockCard';
 import TabSwitcher, { TabType } from './TabSwitcher';
 import Link from 'next/link';
@@ -72,33 +72,39 @@ export default function HomeContent({ recommendations }: HomeContentProps) {
     setWatchlistError(null);
 
     try {
-      const stocks: StockRecommendation[] = [];
+      const codes = watchlist.map(item => item.code);
+      const { stocks: analyses } = await getBatchStockAnalyses(codes);
 
-      for (const item of watchlist) {
-        try {
-          const analysis = await getStockAnalysis(item.code);
-          stocks.push(convertToRecommendation(analysis));
-        } catch {
-          // 如果单个股票加载失败，使用基本信息
-          stocks.push({
-            code: item.code,
-            name: item.name,
-            industry: '加载失败',
-            price: 0,
-            change: 0,
-            score: 0,
-            buyPriceLow: 0,
-            buyPriceHigh: 0,
-            stopLoss: 0,
-            takeProfit1: 0,
-            takeProfit2: 0,
-            holdingDays: '-',
-            positionRatio: '-',
-            reasons: { technical: [], fundamental: [], capital: [] },
-            riskLevel: 'medium',
-          });
-        }
+      // 将返回结果按代码索引，方便匹配
+      const analysisMap = new Map<string, StockAnalysis>();
+      for (const a of analyses) {
+        analysisMap.set(a.code, a);
       }
+
+      // 按自选股顺序构建结果
+      const stocks: StockRecommendation[] = watchlist.map(item => {
+        const analysis = analysisMap.get(item.code);
+        if (analysis) {
+          return convertToRecommendation(analysis);
+        }
+        return {
+          code: item.code,
+          name: item.name,
+          industry: '加载失败',
+          price: 0,
+          change: 0,
+          score: 0,
+          buyPriceLow: 0,
+          buyPriceHigh: 0,
+          stopLoss: 0,
+          takeProfit1: 0,
+          takeProfit2: 0,
+          holdingDays: '-',
+          positionRatio: '-',
+          reasons: { technical: [], fundamental: [], capital: [] },
+          riskLevel: 'medium',
+        };
+      });
 
       setWatchlistStocks(stocks);
     } catch {

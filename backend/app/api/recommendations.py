@@ -5,6 +5,7 @@
 from fastapi import APIRouter, HTTPException
 from datetime import datetime
 from app.services import eastmoney_service, strategy_service
+from app.services import cache_service
 from app.db import supabase as db
 
 router = APIRouter()
@@ -32,15 +33,16 @@ async def get_today_recommendations():
             "message": "暂无推荐数据，请等待每日更新"
         }
 
-    # 用实时行情更新价格和涨跌幅（数据库里存的是推荐生成时的旧数据）
+    # 批量获取实时价格（单次HTTP请求，替代逐个串行）
+    codes = [rec["code"] for rec in recommendations]
+    batch_quotes = eastmoney_service.get_batch_realtime(codes)
     for rec in recommendations:
-        try:
-            realtime = eastmoney_service.get_realtime(rec["code"])
-            if realtime:
-                rec["price"] = realtime["price"]
-                rec["change"] = realtime["change"]
-        except Exception:
-            pass  # 获取失败则保留数据库中的旧价格
+        quote = batch_quotes.get(rec["code"])
+        if quote:
+            rec["price"] = quote["price"]
+            rec["change"] = quote["change"]
+    # 回填内存缓存
+    cache_service.set_cached_quotes_batch(batch_quotes)
 
     return {
         "date": date,

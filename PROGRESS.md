@@ -1,14 +1,67 @@
 # A股智能交易策略系统 - 开发进度
 
-## 当前状态: ✅ v2.0 开发完成，优化完毕，准备交付
+## 当前状态: v3.0 Sprint 1 完成 - 智能缓存核心已开发
 
-**最后更新**: 2026-02-09 20:45
-**项目状态**: 功能完整、已测试、已优化、已部署
-**完成度**: 98% (核心功能 + 测试 + 优化全部完成)
+**最后更新**: 2026-02-09 23:30
+**项目状态**: v3.0 Sprint 1 完成，Sprint 2 待开始
+**完成度**: v2.0 100% | v3.0 Sprint 1/3 完成
 
 ---
 
-## 🔧 最新进展 (2026-02-09 20:45)
+## v3.0 Sprint 1 完成 (2026-02-09 23:30)
+
+### 智能缓存核心开发完成 ✅
+
+**完成的任务**:
+
+| 编号 | 任务 | 状态 |
+|------|------|------|
+| A1 | Supabase 缓存表设计 (`002_create_cache_tables.sql`) | ✅ |
+| A2 | 问答历史表设计 (同一迁移文件) | ✅ |
+| A3 | `cache_service.py` - L1内存+L2持久缓存 | ✅ |
+| A4 | `get_batch_realtime()` - 批量行情API | ✅ |
+| A5 | `stock.py` - 三层缓存路由逻辑 | ✅ |
+| A6 | `recommendations.py` - 批量行情优化 | ✅ |
+| A7 | 前端: 详情页缓存状态+刷新按钮 | ✅ |
+| A8 | 前端: 自选股批量加载优化 | ✅ |
+
+**新增/修改的文件**:
+- `backend/app/db/migrations/002_create_cache_tables.sql` (NEW)
+- `backend/app/services/cache_service.py` (NEW)
+- `backend/app/services/eastmoney_service.py` (MODIFIED - 新增 get_batch_realtime)
+- `backend/app/api/stock.py` (MODIFIED - 三层缓存 + /stocks/batch 端点)
+- `backend/app/api/recommendations.py` (MODIFIED - 批量行情)
+- `src/lib/api.ts` (MODIFIED - refresh参数 + getBatchStockAnalyses)
+- `src/components/StockDetailClient.tsx` (MODIFIED - 缓存状态UI)
+- `src/components/HomeContent.tsx` (MODIFIED - 批量加载自选股)
+
+**QA 设计审查**: 条件性通过 (QA_V3_DESIGN_REVIEW.md)
+**测试计划**: 已制定 (TEST_PLAN_V3.md)
+
+**待执行**: 在 Supabase SQL Editor 执行 `002_create_cache_tables.sql`
+
+### 下一步: Sprint 2 - 缓存预热 + AI问答后端
+
+---
+
+## v3.0 产品设计 (2026-02-09 22:30)
+
+**需求来源**: 用户反馈
+1. 智能缓存机制 - 解决全局加载慢的问题
+2. AI 股票问答 - 在详情页中问 AI 关于个股的信息
+
+**输出文档**: `DESIGN_V3_CACHE_AND_QA.md`
+
+**排期估算**: 5-6天 (3个Sprint)
+- Sprint 1: 智能缓存核心 ✅ 完成
+- Sprint 2: 缓存预热 + 问答后端 (进行中)
+- Sprint 3: 问答前端 + 测试 (待开始)
+
+---
+
+## 历史进展 (v2.0)
+
+### 🔧 Bug 修复和代码优化 (2026-02-09 20:45)
 
 ### Bug 修复和代码优化完成 ✅
 
