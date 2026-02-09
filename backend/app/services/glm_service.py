@@ -128,7 +128,7 @@ def generate_ai_summary(
         error_body = ""
         try:
             error_body = e.read().decode('utf-8')
-        except:
+        except Exception:
             pass
 
         print(f"GLM API HTTP 错误 {e.code}: {error_body}")

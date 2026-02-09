@@ -116,7 +116,7 @@ def call_glm_api(system_prompt: str, user_prompt: str, max_tokens: int = 800) ->
             error_body = e.read().decode('utf-8')
             error_json = json.loads(error_body)
             error_msg = error_json.get("error", {}).get("message", str(e))
-        except:
+        except Exception:
             error_msg = str(e)
 
         print(f"GLM API HTTP 错误 {e.code}: {error_msg}")

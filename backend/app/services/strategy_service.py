@@ -71,7 +71,7 @@ def macd_golden_cross(df: pd.DataFrame) -> bool:
             return True
 
         return False
-    except:
+    except Exception:
         return False
 
 
@@ -106,7 +106,7 @@ def rsi_oversold_bounce(df: pd.DataFrame) -> bool:
         not_overbought = rsi6_val < 50
 
         return was_oversold and recovering and not_overbought
-    except:
+    except Exception:
         return False
 
 
@@ -144,7 +144,7 @@ def ma_bullish_alignment(df: pd.DataFrame) -> bool:
         ma5_rising = ma5_val > ma5.iloc[-2]
 
         return bullish and above_ma5 and ma5_rising
-    except:
+    except Exception:
         return False
 
 
@@ -174,7 +174,7 @@ def volume_price_confirmation(df: pd.DataFrame) -> bool:
         no_gap = open_price < prev_close * 1.03
 
         return price_up and volume_increase and no_gap
-    except:
+    except Exception:
         return False
 
 

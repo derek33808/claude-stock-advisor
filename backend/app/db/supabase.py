@@ -272,3 +272,8 @@ async def save_stock_cache(code: str, name: str, industry: str, data: dict, indi
     except Exception as e:
         print(f"Error saving stock cache: {e}")
         return False
+
+
+# Export global supabase instance for convenience
+# This is lazy-initialized on first access
+supabase = get_supabase()
