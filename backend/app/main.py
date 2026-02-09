@@ -52,7 +52,7 @@ async def startup_event():
     """应用启动时执行"""
     print("[Startup] Starting scheduler...")
     start_scheduler()
-    print("[Startup] Stock Advisor v2.0 started successfully")
+    print("[Startup] Stock Advisor v3.0 started successfully")
 
 
 # Shutdown event
@@ -61,14 +61,14 @@ async def shutdown_event():
     """应用关闭时执行"""
     print("[Shutdown] Stopping scheduler...")
     stop_scheduler()
-    print("[Shutdown] Stock Advisor v2.0 stopped")
+    print("[Shutdown] Stock Advisor v3.0 stopped")
 
 
 @app.get("/")
 async def root():
     return {
         "name": settings.app_name,
-        "version": "2.0.0",
+        "version": "3.0.0",
         "status": "running",
     }
 
