@@ -326,12 +326,16 @@ def test_news():
 
     data = result["data"]
 
-    if not isinstance(data, list):
-        return {"status": "FAIL", "error": "响应不是列表"}
+    # API 返回对象 {"code": "...", "news": [...]}，不是直接列表
+    if not isinstance(data, dict) or "news" not in data:
+        return {"status": "FAIL", "error": "响应格式错误，应包含 'news' 字段"}
+
+    if not isinstance(data["news"], list):
+        return {"status": "FAIL", "error": "'news' 字段不是列表"}
 
     return {
         "status": "PASS",
-        "details": f"获取到 {len(data)} 条新闻"
+        "details": f"获取到 {len(data['news'])} 条新闻"
     }
 
 
@@ -413,12 +417,16 @@ def test_watchlist_list():
 
     data = result["data"]
 
-    if not isinstance(data, list):
-        return {"status": "FAIL", "error": "响应不是列表"}
+    # API 返回对象 {"user_id": "...", "watchlist": [...]}，不是直接列表
+    if not isinstance(data, dict) or "watchlist" not in data:
+        return {"status": "FAIL", "error": "响应格式错误，应包含 'watchlist' 字段"}
+
+    if not isinstance(data["watchlist"], list):
+        return {"status": "FAIL", "error": "'watchlist' 字段不是列表"}
 
     return {
         "status": "PASS",
-        "details": f"自选股数量: {len(data)}"
+        "details": f"自选股数量: {len(data['watchlist'])}"
     }
 
 
