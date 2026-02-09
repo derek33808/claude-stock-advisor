@@ -255,6 +255,23 @@ export default function StockDetailClient({ code }: StockDetailClientProps) {
         </section>
       )}
 
+      {/* 历史分析入口 */}
+      <section className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-4">
+        <div className="flex justify-between items-center">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-800">历史分析记录</h2>
+            <p className="text-xs text-gray-500 mt-1">查看过去30天的分析和预测准确率</p>
+          </div>
+          <Link
+            href={`/history/${stock.code}`}
+            className="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600 transition-colors flex items-center gap-1"
+          >
+            <span>查看历史</span>
+            <span>→</span>
+          </Link>
+        </div>
+      </section>
+
       {/* 风险提示 */}
       <Disclaimer />
     </main>

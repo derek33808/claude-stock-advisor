@@ -379,3 +379,60 @@ export async function prefetchStocks(codes: string[]): Promise<{
     body: JSON.stringify(codes),
   });
 }
+
+/**
+ * 获取股票历史分析记录
+ */
+export async function getAnalysisHistory(
+  code: string,
+  userId: string = 'default_user',
+  days: number = 30
+): Promise<{
+  code: string;
+  days: number;
+  count: number;
+  history: Array<{
+    id: string;
+    code: string;
+    analysis_date: string;
+    analysis_time: string;
+    price: number;
+    change_percent: number;
+    prediction_direction: string;
+    prediction_text: string;
+    target_price_low: number;
+    target_price_high: number;
+    analysis_content: any;
+    created_at: string;
+    evaluation?: {
+      evaluation_date: string;
+      actual_price: number;
+      price_change_percent: number;
+      is_direction_correct: boolean;
+      is_target_reached: boolean;
+      accuracy_score: number;
+      evaluation_note: string;
+    };
+  }>;
+}> {
+  return apiRequest(`/analysis/history/${code}?user_id=${userId}&days=${days}`);
+}
+
+/**
+ * 获取预测准确率统计
+ */
+export async function getAccuracyStats(
+  code: string,
+  userId: string = 'default_user'
+): Promise<{
+  code: string;
+  total_predictions: number;
+  evaluated_predictions: number;
+  direction_correct_count: number;
+  target_reached_count: number;
+  direction_accuracy: number;
+  target_accuracy: number;
+  average_accuracy_score: number;
+}> {
+  return apiRequest(`/analysis/accuracy/${code}?user_id=${userId}`);
+}
