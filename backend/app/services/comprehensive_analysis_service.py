@@ -72,6 +72,13 @@ async def generate_comprehensive_analysis(code: str) -> Dict:
         'code': code,
         'name': quote['name'],
         'quote': quote,
+        # 5维分析数据（简化字段名）
+        'technical': technical,
+        'fundamental': fundamental,
+        'news_events': news,
+        'industry': industry,
+        'ai_synthesis': ai_summary.get('summary', {}),
+        # 详细数据（保留完整字段名以兼容）
         'technical_analysis': technical,
         'company_analysis': company,
         'fundamental_analysis': fundamental,
