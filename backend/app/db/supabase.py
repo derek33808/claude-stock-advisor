@@ -275,5 +275,19 @@ async def save_stock_cache(code: str, name: str, industry: str, data: dict, indi
 
 
 # Export global supabase instance for convenience
-# This is lazy-initialized on first access
-supabase = get_supabase()
+# Use lazy initialization to avoid errors during import
+_supabase_instance = None
+
+def _get_or_create_supabase():
+    """Lazy initialization of global supabase instance"""
+    global _supabase_instance
+    if _supabase_instance is None:
+        _supabase_instance = get_supabase()
+    return _supabase_instance
+
+# Create a property-like object that initializes on first access
+class _SupabaseProxy:
+    def __getattr__(self, name):
+        return getattr(_get_or_create_supabase(), name)
+
+supabase = _SupabaseProxy()
