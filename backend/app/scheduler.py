@@ -25,35 +25,56 @@ async def daily_recommendations_job():
     每日17:00自动生成推荐股票
     仅在交易日执行
     """
-    print(f"[Scheduler] Daily recommendations job started at {date.today()}")
+    job_start_time = datetime.now()
+    print(f"[Scheduler] ========================================")
+    print(f"[Scheduler] Daily recommendations job started")
+    print(f"[Scheduler] Date: {date.today()}, Time: {job_start_time.strftime('%H:%M:%S')}")
+    print(f"[Scheduler] ========================================")
 
     # 仅在交易日执行
     if not trading_calendar.is_trading_day(date.today()):
-        print("[Scheduler] Not a trading day, skipping recommendation generation")
+        print("[Scheduler] ⏭️  Not a trading day, skipping recommendation generation")
         return
 
     try:
         # 生成推荐
+        print("[Scheduler] 🔄 Generating daily recommendations...")
+        start_time = datetime.now()
         recommendations = await strategy_service.generate_daily_recommendations(top_n=10)
+        generation_time = (datetime.now() - start_time).total_seconds()
+        print(f"[Scheduler] ✅ Generation completed in {generation_time:.2f}s")
 
         if not recommendations:
-            print("[Scheduler] Failed to generate recommendations")
+            error_msg = "Failed to generate recommendations - empty result"
+            print(f"[Scheduler] ❌ {error_msg}")
+            # TODO: 发送告警通知（可接入钉钉/企业微信/邮件）
             return
 
         # 保存到数据库
         today = datetime.now().strftime("%Y-%m-%d")
         await db.save_recommendations(today, recommendations)
-        print(f"[Scheduler] Saved {len(recommendations)} recommendations")
+        print(f"[Scheduler] 💾 Saved {len(recommendations)} recommendations to database")
 
         # 保存市场概览（带 fallback）
         market = eastmoney_service.get_market_indices_with_fallback()
         await db.save_market_overview(today, market)
-        print("[Scheduler] Saved market overview")
+        print("[Scheduler] 💾 Saved market overview")
 
-        print(f"[Scheduler] Daily recommendations job completed successfully")
+        total_time = (datetime.now() - job_start_time).total_seconds()
+        print(f"[Scheduler] ========================================")
+        print(f"[Scheduler] ✅ Job completed successfully in {total_time:.2f}s")
+        print(f"[Scheduler] Recommendations: {len(recommendations)} stocks")
+        print(f"[Scheduler] ========================================")
 
     except Exception as e:
-        print(f"[Scheduler] Daily recommendations job failed: {e}")
+        error_time = (datetime.now() - job_start_time).total_seconds()
+        print(f"[Scheduler] ========================================")
+        print(f"[Scheduler] ❌ Job failed after {error_time:.2f}s")
+        print(f"[Scheduler] Error: {type(e).__name__}: {str(e)}")
+        print(f"[Scheduler] ========================================")
+        # TODO: 发送告警通知（可接入钉钉/企业微信/邮件）
+        import traceback
+        print(f"[Scheduler] Stack trace:\n{traceback.format_exc()}")
 
 
 @scheduler.scheduled_job('cron', hour=17, minute=30, id='daily_snapshot')
@@ -62,24 +83,36 @@ async def daily_snapshot_job():
     每日17:30保存所有自选股的分析快照
     仅在交易日执行
     """
-    print(f"[Scheduler] Daily snapshot job started at {date.today()}")
+    job_start_time = datetime.now()
+    print(f"[Scheduler] ========================================")
+    print(f"[Scheduler] Daily snapshot job started")
+    print(f"[Scheduler] Date: {date.today()}, Time: {job_start_time.strftime('%H:%M:%S')}")
+    print(f"[Scheduler] ========================================")
 
     # 仅在交易日执行
     if not trading_calendar.is_trading_day(date.today()):
-        print("[Scheduler] Not a trading day, skipping snapshot")
+        print("[Scheduler] ⏭️  Not a trading day, skipping snapshot")
         return
 
     try:
         # 获取所有用户的自选股
+        print("[Scheduler] 📋 Fetching watchlist items...")
         result = supabase.table('watchlist').select('*').execute()
 
         if not result.data:
-            print("[Scheduler] No watchlist items found")
+            print("[Scheduler] ℹ️  No watchlist items found")
             return
 
+        total_items = len(result.data)
+        print(f"[Scheduler] 📊 Found {total_items} watchlist items")
+
         saved_count = 0
-        for item in result.data:
+        failed_count = 0
+
+        for idx, item in enumerate(result.data, 1):
             try:
+                print(f"[Scheduler] 🔄 Processing {idx}/{total_items}: {item['code']}")
+
                 # 生成综合分析
                 analysis = await comprehensive_analysis_service.generate_comprehensive_analysis(
                     item['code']
@@ -93,15 +126,20 @@ async def daily_snapshot_job():
                 )
 
                 saved_count += 1
+                print(f"[Scheduler] ✅ Saved snapshot for {item['code']}")
 
             except Exception as e:
-                print(f"[Scheduler] Error saving snapshot for {item['code']}: {e}")
+                failed_count += 1
+                print(f"[Scheduler] ❌ Error saving snapshot for {item['code']}: {str(e)}")
                 continue
 
-        print(f"[Scheduler] Saved {saved_count} snapshots")
-
-    except Exception as e:
-        print(f"[Scheduler] Daily snapshot job failed: {e}")
+        total_time = (datetime.now() - job_start_time).total_seconds()
+        print(f"[Scheduler] ========================================")
+        print(f"[Scheduler] ✅ Job completed in {total_time:.2f}s")
+        print(f"[Scheduler] Success: {saved_count}/{total_items}")
+        if failed_count > 0:
+            print(f"[Scheduler] ⚠️  Failed: {failed_count}/{total_items}")
+        print(f"[Scheduler] ========================================")
 
 
 @scheduler.scheduled_job('cron', hour=18, minute=0, id='evaluation_job')
@@ -110,20 +148,27 @@ async def evaluation_job():
     每日18:00评估5个交易日前的预测
     仅在交易日执行
     """
-    print(f"[Scheduler] Evaluation job started at {date.today()}")
+    job_start_time = datetime.now()
+    print(f"[Scheduler] ========================================")
+    print(f"[Scheduler] Evaluation job started")
+    print(f"[Scheduler] Date: {date.today()}, Time: {job_start_time.strftime('%H:%M:%S')}")
+    print(f"[Scheduler] ========================================")
 
     # 仅在交易日执行
     if not trading_calendar.is_trading_day(date.today()):
-        print("[Scheduler] Not a trading day, skipping evaluation")
+        print("[Scheduler] ⏭️  Not a trading day, skipping evaluation")
         return
 
     try:
         # 计算5个交易日前的日期
+        print("[Scheduler] 📅 Calculating evaluation date...")
         evaluation_date = trading_calendar.add_trading_days(date.today(), -5)
 
         if not evaluation_date:
-            print("[Scheduler] Cannot calculate evaluation date")
+            print("[Scheduler] ❌ Cannot calculate evaluation date")
             return
+
+        print(f"[Scheduler] 📊 Evaluating predictions from {evaluation_date}")
 
         # 获取该日期的所有分析记录
         result = supabase.table('analysis_history') \
@@ -132,24 +177,45 @@ async def evaluation_job():
             .execute()
 
         if not result.data:
-            print(f"[Scheduler] No analyses found for {evaluation_date}")
+            print(f"[Scheduler] ℹ️  No analyses found for {evaluation_date}")
             return
 
+        total_analyses = len(result.data)
+        print(f"[Scheduler] 📋 Found {total_analyses} analyses to evaluate")
+
         evaluated_count = 0
-        for analysis in result.data:
+        failed_count = 0
+
+        for idx, analysis in enumerate(result.data, 1):
             try:
+                print(f"[Scheduler] 🔄 Evaluating {idx}/{total_analyses}: {analysis['code']}")
+
                 # 评估预测
                 await prediction_tracking_service.evaluate_prediction(analysis['id'])
                 evaluated_count += 1
+                print(f"[Scheduler] ✅ Evaluated {analysis['code']}")
 
             except Exception as e:
-                print(f"[Scheduler] Error evaluating {analysis['id']}: {e}")
+                failed_count += 1
+                print(f"[Scheduler] ❌ Error evaluating {analysis['id']}: {str(e)}")
                 continue
 
-        print(f"[Scheduler] Evaluated {evaluated_count} predictions")
+        total_time = (datetime.now() - job_start_time).total_seconds()
+        print(f"[Scheduler] ========================================")
+        print(f"[Scheduler] ✅ Job completed in {total_time:.2f}s")
+        print(f"[Scheduler] Success: {evaluated_count}/{total_analyses}")
+        if failed_count > 0:
+            print(f"[Scheduler] ⚠️  Failed: {failed_count}/{total_analyses}")
+        print(f"[Scheduler] ========================================")
 
     except Exception as e:
-        print(f"[Scheduler] Evaluation job failed: {e}")
+        error_time = (datetime.now() - job_start_time).total_seconds()
+        print(f"[Scheduler] ========================================")
+        print(f"[Scheduler] ❌ Job failed after {error_time:.2f}s")
+        print(f"[Scheduler] Error: {type(e).__name__}: {str(e)}")
+        print(f"[Scheduler] ========================================")
+        import traceback
+        print(f"[Scheduler] Stack trace:\n{traceback.format_exc()}")
 
 
 def start_scheduler():

@@ -2,7 +2,7 @@
 全局刷新 API 端点（SSE）
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import List, Optional
@@ -28,6 +28,7 @@ class RefreshAllRequest(BaseModel):
     codes: Optional[List[str]] = None  # 可选，如果为空则从watchlist获取
     include_recommendations: bool = False  # 是否生成推荐
     include_watchlist: bool = False  # 是否包含自选股
+    timeout_seconds: int = 600  # 超时时间（秒），默认10分钟
 
 
 @router.post("/refresh/all")
@@ -48,14 +49,17 @@ async def refresh_all(data: RefreshAllRequest):
     codes = data.codes or []
     include_recommendations = data.include_recommendations
     include_watchlist = data.include_watchlist
+    timeout_seconds = data.timeout_seconds
 
     async def generate_progress():
+        start_time = datetime.now()
+
         # 检查并发保护
         if user_id in _active_refreshes:
             yield f"data: {json.dumps({'event': 'error', 'message': '刷新进行中，请稍候'})}\n\n"
             return
 
-        _active_refreshes[user_id] = {'status': 'running', 'progress': 0}
+        _active_refreshes[user_id] = {'status': 'running', 'progress': 0, 'start_time': start_time}
 
         try:
             tasks_completed = 0
@@ -103,6 +107,12 @@ async def refresh_all(data: RefreshAllRequest):
             # 步骤2: 刷新股票（如果有codes）
             if codes:
                 for idx, code in enumerate(codes):
+                    # 超时检查
+                    elapsed = (datetime.now() - start_time).total_seconds()
+                    if elapsed > timeout_seconds:
+                        yield f"data: {json.dumps({'event': 'timeout', 'message': f'操作超时（{elapsed:.0f}s > {timeout_seconds}s），已处理 {tasks_completed}/{total_tasks}', 'completed': tasks_completed, 'total': total_tasks})}\n\n"
+                        return
+
                     try:
                         # 刷新单只股票
                         await comprehensive_analysis_service.generate_comprehensive_analysis(code)
@@ -160,7 +170,7 @@ async def refresh_all(data: RefreshAllRequest):
 
 
 @router.get("/refresh/status")
-async def get_refresh_status(user_id: str):
+async def get_refresh_status(user_id: str = Query(..., description="用户ID")):
     """
     获取刷新状态
 
