@@ -213,6 +213,15 @@ async def daily_snapshot_job():
             print(f"[Scheduler] ⚠️  Failed: {failed_count}/{total_items}")
         print(f"[Scheduler] ========================================")
 
+    except Exception as e:
+        error_time = (datetime.now() - job_start_time).total_seconds()
+        print(f"[Scheduler] ========================================")
+        print(f"[Scheduler] ❌ Snapshot job failed after {error_time:.2f}s")
+        print(f"[Scheduler] Error: {type(e).__name__}: {str(e)}")
+        print(f"[Scheduler] ========================================")
+        import traceback
+        print(f"[Scheduler] Stack trace:\n{traceback.format_exc()}")
+
 
 @scheduler.scheduled_job('cron', hour=18, minute=0, id='evaluation_job')
 async def evaluation_job():
