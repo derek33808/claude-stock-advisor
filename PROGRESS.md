@@ -1,10 +1,10 @@
 # A股智能交易策略系统 - 开发进度
 
-## 当前状态: v3.0 Sprint 1 完成 - 智能缓存核心已开发
+## 当前状态: v3.0 全部Sprint完成 - 待部署验证
 
-**最后更新**: 2026-02-09 23:30
-**项目状态**: v3.0 Sprint 1 完成，Sprint 2 待开始
-**完成度**: v2.0 100% | v3.0 Sprint 1/3 完成
+**最后更新**: 2026-02-10 00:00
+**项目状态**: v3.0 代码开发完成，待执行DB迁移和部署验证
+**完成度**: v2.0 100% | v3.0 代码 100%
 
 ---
 
@@ -40,22 +40,47 @@
 
 **待执行**: 在 Supabase SQL Editor 执行 `002_create_cache_tables.sql`
 
-### 下一步: Sprint 2 - 缓存预热 + AI问答后端
+### Sprint 2+3 完成 (2026-02-10 00:00)
+
+**Sprint 2 - 缓存预热 + AI问答后端**:
+
+| 编号 | 任务 | 状态 |
+|------|------|------|
+| B1 | 缓存预热调度任务 (17:10) | ✅ |
+| B2 | `chat_service.py` - AI问答核心服务 | ✅ |
+| B3 | Chat API (POST/GET) | ✅ |
+| B4 | 注册路由到 main.py | ✅ |
+
+**Sprint 3 - AI问答前端**:
+
+| 编号 | 任务 | 状态 |
+|------|------|------|
+| C1 | 前端 API 函数 (askStockQuestion, getChatHistory) | ✅ |
+| C2 | StockChatPanel 组件 | ✅ |
+| C3 | 集成到详情页 | ✅ |
+
+**新增文件 (Sprint 2+3)**:
+- `backend/app/services/chat_service.py` (NEW)
+- `backend/app/api/chat.py` (NEW)
+- `src/components/StockChatPanel.tsx` (NEW)
+- `backend/app/scheduler.py` (MODIFIED - 新增 cache_warm_job)
+- `backend/app/main.py` (MODIFIED - 注册 chat router, v3.0)
+
+### 待执行部署步骤
+
+1. **Supabase SQL 迁移**: 执行 `002_create_cache_tables.sql`
+2. **Render 部署**: 已推送 GitHub，Render 自动部署
+3. **Netlify 部署**: 已推送 GitHub，Netlify 自动部署
+4. **验证**: 测试缓存命中、AI问答、预热任务
 
 ---
 
 ## v3.0 产品设计 (2026-02-09 22:30)
 
-**需求来源**: 用户反馈
-1. 智能缓存机制 - 解决全局加载慢的问题
-2. AI 股票问答 - 在详情页中问 AI 关于个股的信息
-
-**输出文档**: `DESIGN_V3_CACHE_AND_QA.md`
-
-**排期估算**: 5-6天 (3个Sprint)
+**排期估算 vs 实际**:
 - Sprint 1: 智能缓存核心 ✅ 完成
-- Sprint 2: 缓存预热 + 问答后端 (进行中)
-- Sprint 3: 问答前端 + 测试 (待开始)
+- Sprint 2: 缓存预热 + 问答后端 ✅ 完成
+- Sprint 3: 问答前端 + 测试 ✅ 完成
 
 ---
 
