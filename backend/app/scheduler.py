@@ -1,19 +1,59 @@
 """
 定时任务调度器
-每日自动保存自选股快照、评估预测
+每日自动生成推荐、保存自选股快照、评估预测
 """
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from datetime import date
+from datetime import date, datetime
 from app.services.trading_calendar_service import trading_calendar
 from app.services import (
     watchlist_service,
     prediction_tracking_service,
-    comprehensive_analysis_service
+    comprehensive_analysis_service,
+    eastmoney_service,
+    strategy_service
 )
 from app.db.supabase import supabase
+from app.db import supabase as db
 
 scheduler = AsyncIOScheduler()
+
+
+@scheduler.scheduled_job('cron', hour=17, minute=0, id='daily_recommendations')
+async def daily_recommendations_job():
+    """
+    每日17:00自动生成推荐股票
+    仅在交易日执行
+    """
+    print(f"[Scheduler] Daily recommendations job started at {date.today()}")
+
+    # 仅在交易日执行
+    if not trading_calendar.is_trading_day(date.today()):
+        print("[Scheduler] Not a trading day, skipping recommendation generation")
+        return
+
+    try:
+        # 生成推荐
+        recommendations = await strategy_service.generate_daily_recommendations(top_n=10)
+
+        if not recommendations:
+            print("[Scheduler] Failed to generate recommendations")
+            return
+
+        # 保存到数据库
+        today = datetime.now().strftime("%Y-%m-%d")
+        await db.save_recommendations(today, recommendations)
+        print(f"[Scheduler] Saved {len(recommendations)} recommendations")
+
+        # 保存市场概览（带 fallback）
+        market = eastmoney_service.get_market_indices_with_fallback()
+        await db.save_market_overview(today, market)
+        print("[Scheduler] Saved market overview")
+
+        print(f"[Scheduler] Daily recommendations job completed successfully")
+
+    except Exception as e:
+        print(f"[Scheduler] Daily recommendations job failed: {e}")
 
 
 @scheduler.scheduled_job('cron', hour=17, minute=30, id='daily_snapshot')
