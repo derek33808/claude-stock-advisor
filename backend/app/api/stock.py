@@ -75,6 +75,12 @@ async def get_stock_analysis(
                 response = cached["data"].copy()
                 response["cached"] = True
                 response["cache_time"] = cached["updated_at"].strftime("%H:%M:%S")
+                response["cache_info"] = {
+                    "cached": True,
+                    "level": "L1",
+                    "analysis_updated_at": cached["updated_at"].isoformat(),
+                    "quote_fresh": True,
+                }
                 return response
 
         # L2: Supabase 持久缓存 (4小时)
@@ -280,6 +286,12 @@ async def _do_full_analysis(code: str, ai_analysis: bool = True) -> dict:
     cache_service.save_analysis_cache(code, response)
 
     response["cached"] = False
+    response["cache_info"] = {
+        "cached": False,
+        "level": "L3",
+        "analysis_updated_at": datetime.now().isoformat(),
+        "quote_fresh": True,
+    }
     return response
 
 
