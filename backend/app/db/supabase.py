@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import List, Optional
 from supabase import create_client, Client
 from app.config import get_settings
 
@@ -27,7 +27,7 @@ def get_supabase() -> Client:
 # Recommendations CRUD
 # ============================================
 
-async def save_recommendations(date: str, recommendations: list[dict]) -> bool:
+async def save_recommendations(date: str, recommendations: List[dict]) -> bool:
     """Save daily recommendations to database"""
     try:
         supabase = get_supabase()

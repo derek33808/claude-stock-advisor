@@ -1,3 +1,4 @@
+from typing import List
 from pydantic_settings import BaseSettings
 from functools import lru_cache
 
@@ -17,7 +18,7 @@ class Settings(BaseSettings):
     glm_api_key: str = ""
 
     # CORS
-    cors_origins: list[str] = [
+    cors_origins: List[str] = [
         "http://localhost:3000",
         "https://stock-advisor.netlify.app",
         "https://claude-stock-advisor.netlify.app",

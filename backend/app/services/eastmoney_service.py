@@ -391,7 +391,7 @@ async def get_realtime(code: str) -> Optional[dict]:
     return None
 
 
-async def get_batch_realtime(codes: list[str]) -> dict[str, dict]:
+async def get_batch_realtime(codes: List[str]) -> Dict[str, dict]:
     """
     批量获取多只股票实时行情（单次HTTP请求，异步）
     利用东方财富 ulist.np API 支持多 secid 的特性

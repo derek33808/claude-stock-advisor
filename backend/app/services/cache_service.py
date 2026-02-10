@@ -4,14 +4,14 @@
 """
 
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Dict, List, Optional
 from app.db.supabase import get_supabase
 
 # ============================================
 # L1: 内存缓存 - 实时价格 (30秒TTL)
 # ============================================
 
-_quote_cache: dict[str, dict] = {}
+_quote_cache: Dict[str, dict] = {}
 _QUOTE_TTL = timedelta(seconds=30)
 
 
@@ -29,7 +29,7 @@ def set_cached_quote(code: str, quote: dict):
     _quote_cache[code] = quote
 
 
-def set_cached_quotes_batch(quotes: dict[str, dict]):
+def set_cached_quotes_batch(quotes: Dict[str, dict]):
     """批量写入实时价格内存缓存"""
     now = datetime.now()
     for code, quote in quotes.items():
@@ -168,7 +168,7 @@ def update_quote_in_cache(code: str, realtime: dict):
         print(f"[Cache] Error updating quote cache for {code}: {e}")
 
 
-def get_cached_analyses_batch(codes: list[str]) -> dict[str, dict]:
+def get_cached_analyses_batch(codes: List[str]) -> Dict[str, dict]:
     """批量获取多只股票的缓存分析结果"""
     try:
         sb = get_supabase()
