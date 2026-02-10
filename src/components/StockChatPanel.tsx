@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { askStockQuestion, getChatHistory, ChatResponse, ChatHistoryItem } from '@/lib/api';
+import { askStockQuestion, getChatHistory, getAvailableModels, ChatResponse, ChatHistoryItem, AIModel } from '@/lib/api';
 
 interface StockChatPanelProps {
   code: string;
@@ -24,7 +24,19 @@ export default function StockChatPanel({ code, stockName }: StockChatPanelProps)
   const [remainingQuota, setRemainingQuota] = useState(10);
   const [latestAnswer, setLatestAnswer] = useState<ChatResponse | null>(null);
   const [showAllHistory, setShowAllHistory] = useState(false);
+  const [availableModels, setAvailableModels] = useState<AIModel[]>([]);
+  const [selectedModel, setSelectedModel] = useState('');
   const answerRef = useRef<HTMLDivElement>(null);
+
+  // 加载可用模型列表
+  useEffect(() => {
+    getAvailableModels()
+      .then((data) => {
+        setAvailableModels(data.models);
+        setSelectedModel(data.default || '');
+      })
+      .catch(() => {});
+  }, []);
 
   // 加载历史记录（展开时或股票切换时）
   useEffect(() => {
@@ -51,7 +63,7 @@ export default function StockChatPanel({ code, stockName }: StockChatPanelProps)
     setLatestAnswer(null);
 
     try {
-      const result = await askStockQuestion(code, q, template);
+      const result = await askStockQuestion(code, q, template, undefined, selectedModel || undefined);
       if (result.error) {
         setLatestAnswer(result);
       } else {
@@ -101,7 +113,7 @@ export default function StockChatPanel({ code, stockName }: StockChatPanelProps)
         </h2>
         <div className="flex items-center gap-2">
           <span className="text-xs text-gray-400">
-            今日剩余 {remainingQuota}/{10} 次
+            {remainingQuota < 100 ? `今日剩余 ${remainingQuota} 次` : '无限制'}
           </span>
           <span className={`transition-transform ${expanded ? 'rotate-180' : ''}`}>
             ▾
@@ -128,6 +140,25 @@ export default function StockChatPanel({ code, stockName }: StockChatPanelProps)
               ))}
             </div>
           </div>
+
+          {/* 模型选择 */}
+          {availableModels.length > 1 && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-500 whitespace-nowrap">AI 模型</span>
+              <select
+                value={selectedModel}
+                onChange={(e) => setSelectedModel(e.target.value)}
+                disabled={loading}
+                className="flex-1 px-2 py-1.5 text-xs border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-300 disabled:opacity-50"
+              >
+                {availableModels.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name} - {m.description}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* 自由提问 */}
           {remainingQuota > 0 ? (

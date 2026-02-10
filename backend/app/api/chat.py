@@ -4,8 +4,19 @@ AI 股票问答 API
 
 from fastapi import APIRouter, Query
 from app.services import chat_service
+from app.services.llm_service import get_available_models
 
 router = APIRouter()
+
+
+@router.get("/models")
+async def list_models():
+    """获取可用的 AI 模型列表"""
+    models = get_available_models()
+    return {
+        "models": models,
+        "default": "glm-4-flash",
+    }
 
 
 @router.post("/stock/{code}/chat")
@@ -20,10 +31,12 @@ async def stock_chat(
     - body.question: 用户问题
     - body.user_id: 用户ID (默认 default_user)
     - body.template: 预设模板 (financial/news/comparison/technical/risk)
+    - body.model_id: AI 模型ID (默认 glm-4-flash)
     """
     question = body.get("question", "").strip()
     user_id = body.get("user_id", "default_user")
     template = body.get("template")
+    model_id = body.get("model_id")
 
     if not question and not template:
         return {"error": True, "message": "请输入问题"}
@@ -44,7 +57,7 @@ async def stock_chat(
     if len(question) > 200:
         question = question[:200]
 
-    result = await chat_service.ask_question(code, user_id, question, template)
+    result = await chat_service.ask_question(code, user_id, question, template, model_id=model_id)
     return result
 
 

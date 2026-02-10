@@ -1,20 +1,15 @@
 """
 AI 股票问答服务
-基于缓存的分析数据 + GLM-4 提供单轮问答
-全部使用 httpx 异步调用
+基于缓存的分析数据 + 多模型 提供单轮问答
+支持智谱GLM、DeepSeek等多个模型
 """
 
 import json
 from datetime import datetime, timedelta
 from typing import Optional
 from app.db.supabase import get_supabase
-from app.services.ai_analysis_service import _get_glm_api_key, _ai_model_status
-from app.http_client import get_client
-
-# GLM 配置
-GLM_API_URL = "https://open.bigmodel.cn/api/paas/v4/chat/completions"
-GLM_MODEL = "glm-4-flash"
-GLM_TIMEOUT = 15
+from app.services.ai_analysis_service import _ai_model_status
+from app.services.llm_service import call_llm
 
 # 每日问答额度（测试阶段不限制）
 DAILY_QUOTA = 9999
@@ -265,55 +260,30 @@ def find_similar_answer(code: str, question: str, template: Optional[str] = None
         return None
 
 
-async def call_glm_chat(system_prompt: str, user_prompt: str) -> Optional[dict]:
-    """调用 GLM-4 进行问答（异步）"""
-    try:
-        data = {
-            "model": GLM_MODEL,
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            "temperature": 0.7,
-            "max_tokens": 600,
+async def call_chat_llm(system_prompt: str, user_prompt: str, model_id: Optional[str] = None) -> Optional[dict]:
+    """调用大模型进行问答（统一路由）"""
+    content, error_type = await call_llm(
+        system_prompt, user_prompt,
+        model_id=model_id,
+        max_tokens=600,
+    )
+
+    if error_type:
+        error_messages = {
+            "auth_failed": "API 认证失败",
+            "rate_limited": "请求过于频繁",
+            "quota_exhausted": "API 配额已用尽",
+            "no_api_key": "模型未配置 API Key",
         }
-
-        client = get_client()
-        resp = await client.post(
-            GLM_API_URL,
-            json=data,
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {_get_glm_api_key()}",
-            },
-            timeout=GLM_TIMEOUT,
-        )
-
-        if resp.status_code != 200:
-            error_body = resp.text
-            print(f"[Chat] GLM API HTTP error {resp.status_code}: {error_body}")
-
-            if resp.status_code == 429:
-                if "quota" in error_body.lower():
-                    _ai_model_status.set_error("quota_exhausted", "API 配额已用尽")
-                else:
-                    _ai_model_status.set_error("rate_limited", "请求过于频繁")
-            return None
-
-        result = resp.json()
-
-        if result.get("choices") and len(result["choices"]) > 0:
-            content = result["choices"][0].get("message", {}).get("content", "")
-            usage = result.get("usage", {})
-            tokens_used = usage.get("total_tokens", 0)
-            _ai_model_status.clear_error()
-            return {"answer": content.strip(), "tokens_used": tokens_used}
-
+        msg = error_messages.get(error_type, f"AI 错误: {error_type}")
+        _ai_model_status.set_error(error_type, msg)
         return None
 
-    except Exception as e:
-        print(f"[Chat] GLM API error: {e}")
-        return None
+    if content:
+        _ai_model_status.clear_error()
+        return {"answer": content, "tokens_used": 0}
+
+    return None
 
 
 def save_chat_history(
@@ -367,6 +337,7 @@ async def ask_question(
     user_id: str,
     question: str,
     template: Optional[str] = None,
+    model_id: Optional[str] = None,
 ) -> dict:
     """
     处理用户问答请求（异步）
@@ -430,9 +401,9 @@ async def ask_question(
         except Exception as e:
             print(f"[Chat] Error fetching financial report for {code}: {e}")
 
-    # 4. 构建 prompt 并调用 GLM
+    # 4. 构建 prompt 并调用大模型
     user_prompt = build_chat_prompt(stock_context, question, template)
-    result = await call_glm_chat(CHAT_SYSTEM_PROMPT, user_prompt)
+    result = await call_chat_llm(CHAT_SYSTEM_PROMPT, user_prompt, model_id=model_id)
 
     if not result:
         return {

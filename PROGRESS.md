@@ -1,11 +1,68 @@
 # A股智能交易策略系统 - 开发进度
 
-## 当前状态: v3.0 E2E 测试完成 - 发现 P0 Bug ⚠️
+## 当前状态: 全栈部署完成，所有功能正常 ✅
 
-**最后更新**: 2026-02-10 01:15
-**项目状态**: E2E 测试完成，发现 1 个 P0 阻塞问题
-**完成度**: v2.0 100% | v3.0 代码 100% | E2E测试 100% | Bug修复 0%
-**测试通过率**: 66.7% (6/9) - 1 FAIL, 2 WARN
+**最后更新**: 2026-02-10 17:30
+**项目状态**: 前后端已部署，自选股8/8加载成功，SSR故障自动恢复
+**完成度**: v2.0 100% | v3.0 代码 100% | 性能优化 100% | 部署 100%
+
+---
+
+## 全栈部署与修复 (2026-02-10 15:40-17:30)
+
+### Render 后端部署
+- 手动部署 `324a878`（含所有后端优化代码）
+- **发现并修复关键 bug**: `recommendations.py` 和 `watchlist.py` 中 async 函数缺少 `await`
+  - `get_batch_realtime()`, `get_market_indices_with_fallback()`, `get_realtime()` 均为 async
+  - 未 await 导致 `AttributeError: 'coroutine' object has no attribute 'get'` (500 错误)
+
+### SSR 故障自动恢复
+- **问题**: Netlify SSR 有 8-10s 超时限制，后端响应慢时显示空白"正在连接后端服务"页面
+- **修复**: 新增 `AutoRetryLoader` 组件，SSR 失败时渲染完整页面框架 + 客户端自动获取数据
+- 用户永远不会看到空白错误页面
+
+### 所有修复汇总
+
+| Commit | 修改 | 效果 |
+|--------|------|------|
+| `12f26f1` | 新增 `getStockQuickAnalysis` API，传 `?ai_analysis=false` | 跳过 GLM-4 调用，节省 10-20s/只 |
+| `556e75a` | 超时从 20s 调到 30s | 容纳慢速 ETF（~22s） |
+| `f097111` | 并发从 2 降到 1（串行加载） | 避免 Render 503 |
+| `e53c7ef` | 失败股票自动重试 | 后端热身后重试，提高成功率 |
+| `324a878` | 修复 async/await 缺失 | 修复推荐列表 500 错误 |
+| `4043f41` | SSR 失败自动恢复 | 消除空白错误页面 |
+| `65bcdac` | 每次分析自动保存历史 | 查看历史记录不再为空 |
+
+### 验证结果
+- 后端: health/recommendations/stock/market/search 全部 200 OK
+- 自选股: 8/8 加载成功
+- 股票详情: 完整数据（交易建议+AI分析+历史+问答）
+- SSR 失败恢复: AutoRetryLoader 自动重试
+
+## 综合测试计划 (2026-02-10)
+
+- 文件：`COMPREHENSIVE_TEST_PLAN.md`
+- 113 个测试用例（P0-P2）
+- 覆盖：冒烟/功能/集成/性能/边界/E2E
+- 含自动化测试脚本模板（Python + Playwright）
+- 预计执行时间：7.5 小时
+
+---
+
+## BUG-V3-001 修复 (2026-02-10 01:25)
+
+### 问题
+- API 响应缺少 `cache_info` 字段（仅 L2 缓存路径有，L1/L3 路径缺失）
+
+### 修复
+- `backend/app/api/stock.py`: L1 内存缓存命中路径添加 `cache_info`（level: L1）
+- `backend/app/api/stock.py`: L3 完整分析路径添加 `cache_info`（level: L3）
+- Commit: `e0a4068`
+
+### 验证结果
+- L3 首次请求: ✅ `cache_info.level = "L3"`, `cached = false`
+- L1 缓存命中: ✅ `cache_info.level = "L1"`, `cached = true`
+- Render 部署成功
 
 ---
 

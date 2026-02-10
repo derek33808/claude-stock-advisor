@@ -560,6 +560,26 @@ export interface ChatHistoryItem {
 }
 
 /**
+ * AI 模型信息
+ */
+export interface AIModel {
+  id: string;
+  provider: string;
+  name: string;
+  description: string;
+}
+
+/**
+ * 获取可用 AI 模型列表
+ */
+export async function getAvailableModels(): Promise<{
+  models: AIModel[];
+  default: string;
+}> {
+  return apiRequest('/models', undefined, 10000, 1);
+}
+
+/**
  * AI 股票问答
  */
 export async function askStockQuestion(
@@ -567,10 +587,11 @@ export async function askStockQuestion(
   question: string,
   template?: string,
   userId: string = 'default_user',
+  modelId?: string,
 ): Promise<ChatResponse> {
   return apiRequest(`/stock/${code}/chat`, {
     method: 'POST',
-    body: JSON.stringify({ question, template, user_id: userId }),
+    body: JSON.stringify({ question, template, user_id: userId, model_id: modelId }),
   });
 }
 

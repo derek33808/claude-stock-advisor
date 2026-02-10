@@ -1,6 +1,7 @@
 """
 AI 智能分析服务
-使用 GLM 大模型进行公司分析、基本面分析和智能评分
+使用大模型进行公司分析、基本面分析和智能评分
+支持多模型：智谱GLM、DeepSeek等
 全部使用 httpx 异步调用 + asyncio.gather 并行化
 """
 
@@ -11,12 +12,7 @@ from datetime import datetime
 from cachetools import TTLCache
 from app.config import get_settings
 from app.http_client import get_client
-
-
-# GLM API 配置
-GLM_API_URL = "https://open.bigmodel.cn/api/paas/v4/chat/completions"
-GLM_MODEL = "glm-4-flash"
-GLM_TIMEOUT = 15
+from app.services.llm_service import call_llm, DEFAULT_MODEL
 
 # AI 分析结果缓存：同一天同一股票复用（最多100条，TTL 4小时）
 _ai_analysis_cache: TTLCache = TTLCache(maxsize=100, ttl=14400)
@@ -66,89 +62,40 @@ def get_ai_model_status() -> Dict:
     return _ai_model_status.get_status()
 
 
-async def call_glm_api(system_prompt: str, user_prompt: str, max_tokens: int = 800) -> Tuple[Optional[str], Optional[str]]:
+async def call_glm_api(system_prompt: str, user_prompt: str, max_tokens: int = 800, model_id: Optional[str] = None) -> Tuple[Optional[str], Optional[str]]:
     """
-    调用 GLM API（异步）
+    调用大模型 API（统一路由）
 
     Args:
         system_prompt: 系统提示词
         user_prompt: 用户提示词
         max_tokens: 最大生成 token 数
+        model_id: 模型ID（为空则使用默认模型）
 
     Returns:
         Tuple of (content, error_type)
     """
-    global _ai_model_status
+    content, error_type = await call_llm(
+        system_prompt, user_prompt,
+        model_id=model_id,
+        max_tokens=max_tokens,
+    )
 
-    try:
-        data = {
-            "model": GLM_MODEL,
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt}
-            ],
-            "temperature": 0.7,
-            "max_tokens": max_tokens,
+    # 更新全局状态
+    if error_type:
+        error_messages = {
+            "auth_failed": "API 认证失败，请检查 API Key",
+            "rate_limited": "请求过于频繁，请稍后重试",
+            "quota_exhausted": "API 配额已用尽",
+            "unavailable": "AI 模型服务暂时不可用",
+            "timeout": "AI 模型响应超时",
+            "no_api_key": f"模型 {model_id or DEFAULT_MODEL} 未配置 API Key",
         }
+        _ai_model_status.set_error(error_type, error_messages.get(error_type, f"未知错误: {error_type}"))
+    elif content:
+        _ai_model_status.clear_error()
 
-        client = get_client()
-        resp = await client.post(
-            GLM_API_URL,
-            json=data,
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {_get_glm_api_key()}",
-            },
-            timeout=GLM_TIMEOUT,
-        )
-
-        if resp.status_code != 200:
-            error_body = resp.text
-            error_msg = error_body
-            try:
-                error_json = json.loads(error_body)
-                error_msg = error_json.get("error", {}).get("message", error_body)
-            except Exception:
-                pass
-
-            print(f"GLM API HTTP 错误 {resp.status_code}: {error_msg}")
-
-            if resp.status_code == 401:
-                _ai_model_status.set_error("auth_failed", "API 认证失败，请检查 API Key")
-                return None, "auth_failed"
-            elif resp.status_code == 429:
-                if "quota" in error_body.lower() or "余额" in error_body:
-                    _ai_model_status.set_error("quota_exhausted", "API 配额已用尽，请充值或等待重置")
-                    return None, "quota_exhausted"
-                else:
-                    _ai_model_status.set_error("rate_limited", "请求过于频繁，请稍后重试")
-                    return None, "rate_limited"
-            elif resp.status_code >= 500:
-                _ai_model_status.set_error("unavailable", f"AI 模型服务暂时不可用 (HTTP {resp.status_code})")
-                return None, "unavailable"
-            else:
-                _ai_model_status.set_error("api_error", f"API 错误: {error_msg}")
-                return None, "api_error"
-
-        result = resp.json()
-
-        if result.get("choices") and len(result["choices"]) > 0:
-            content = result["choices"][0].get("message", {}).get("content", "")
-            if content:
-                _ai_model_status.clear_error()
-                return content.strip(), None
-
-        return None, None
-
-    except asyncio.TimeoutError:
-        print("GLM API 超时")
-        _ai_model_status.set_error("timeout", "AI 模型响应超时，请稍后重试")
-        return None, "timeout"
-
-    except Exception as e:
-        print(f"GLM API 调用失败: {e}")
-        _ai_model_status.set_error("unknown", f"未知错误: {str(e)}")
-        return None, "unknown"
+    return content, error_type
 
 
 async def generate_company_analysis(
@@ -479,6 +426,7 @@ async def get_full_ai_analysis(
     score: int,
     indicators: Dict,
     suggestion: Dict,
+    model_id: Optional[str] = None,
 ) -> Dict:
     """
     获取完整的 AI 智能分析
@@ -543,6 +491,9 @@ async def get_full_ai_analysis(
         "company": company_analysis,
         "fundamental": fundamental_analysis,
         "ai_recommendation": ai_recommendation,
+        "financial_report": financial_report,
+        "recent_news": news_list,
+        "model_used": model_id or DEFAULT_MODEL,
         "analysis_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
     }
 

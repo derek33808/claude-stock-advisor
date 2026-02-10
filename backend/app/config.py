@@ -14,8 +14,11 @@ class Settings(BaseSettings):
     supabase_url: str = ""
     supabase_key: str = ""
 
-    # GLM AI API
+    # GLM AI API (智谱)
     glm_api_key: str = ""
+
+    # DeepSeek API
+    deepseek_api_key: str = ""
 
     # CORS
     cors_origins: List[str] = [
