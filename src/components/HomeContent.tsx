@@ -81,7 +81,7 @@ export default function HomeContent({ recommendations }: HomeContentProps) {
   // 稳定的自选股 key
   const watchlistKey = useMemo(() => watchlist.map(w => w.code).join(','), [watchlist]);
 
-  // 逐个加载自选股（渐进式，每完成一个立即显示）
+  // 逐个加载自选股（限制并发 2 个，避免压垮 Render 免费版后端）
   const loadWatchlistStocks = useCallback(async () => {
     if (watchlist.length === 0) return;
 
@@ -96,13 +96,11 @@ export default function HomeContent({ recommendations }: HomeContentProps) {
     let successCount = 0;
     let failCount = 0;
 
-    // 并行加载所有股票，每个完成后立即更新 UI
-    const promises = watchlist.map(async (item, index) => {
+    // 限制并发数的加载函数
+    const loadOne = async (item: { code: string; name: string }, index: number) => {
       try {
         const analysis = await getStockAnalysis(item.code);
         const rec = convertToRecommendation(analysis);
-
-        // 更新对应位置的股票数据
         setWatchlistStocks(prev => {
           const next = [...prev];
           next[index] = rec;
@@ -110,7 +108,6 @@ export default function HomeContent({ recommendations }: HomeContentProps) {
         });
         successCount++;
       } catch {
-        // 保留占位符，标记加载失败
         setWatchlistStocks(prev => {
           const next = [...prev];
           next[index] = { ...placeholders[index], industry: '加载失败' };
@@ -120,9 +117,16 @@ export default function HomeContent({ recommendations }: HomeContentProps) {
       } finally {
         setLoadedCount(prev => prev + 1);
       }
-    });
+    };
 
-    await Promise.allSettled(promises);
+    // 每次最多 2 个并发，避免后端过载
+    const concurrency = 2;
+    for (let i = 0; i < watchlist.length; i += concurrency) {
+      const batch = watchlist.slice(i, i + concurrency);
+      await Promise.allSettled(
+        batch.map((item, batchIdx) => loadOne(item, i + batchIdx))
+      );
+    }
 
     if (successCount === 0 && failCount > 0) {
       setWatchlistError('加载自选股失败，请检查网络后重试');
