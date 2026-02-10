@@ -11,7 +11,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 async function getRecommendationsFromAPI(): Promise<RecommendationData | null> {
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15000);
+    const timeout = setTimeout(() => controller.abort(), 8000);
 
     const res = await fetch(`${API_BASE}/api/v1/recommendations`, {
       cache: 'no-store',
