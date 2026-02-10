@@ -5,13 +5,14 @@
 
 import asyncio
 from typing import List, Optional
+from datetime import datetime, date, timedelta
 from fastapi import APIRouter, HTTPException, Query
-from datetime import datetime, timedelta
 from cachetools import TTLCache
 from app.services import eastmoney_service, indicator_service, strategy_service
 from app.services.glm_service import generate_summary_with_fallback, generate_template_summary
 from app.services.ai_analysis_service import get_full_ai_analysis, calculate_ai_ranking_score, get_ai_model_status
 from app.services import cache_service
+from app.db.supabase import get_supabase
 from app.models.schemas import StockAnalysis
 
 router = APIRouter()
@@ -338,6 +339,26 @@ async def _do_full_analysis(code: str, ai_analysis: bool = True, skip_ai_summary
         "analysis_updated_at": datetime.now().isoformat(),
         "quote_fresh": True,
     }
+
+    # 保存分析历史记录（每只股票每天一条，upsert 避免重复）
+    try:
+        supabase_client = get_supabase()
+        supabase_client.table('analysis_history').upsert({
+            'code': code,
+            'analysis_date': str(date.today()),
+            'analysis_time': datetime.now().strftime('%H:%M:%S'),
+            'price': response['price'],
+            'change_percent': response['change'],
+            'prediction_direction': formatted_suggestion.get('action', '观望'),
+            'prediction_text': summary[:500] if summary else '',
+            'target_price_low': formatted_suggestion['buy_price']['low'],
+            'target_price_high': formatted_suggestion['take_profit']['target2'],
+            'analysis_content': response,
+            'created_at': datetime.now().isoformat(),
+        }, on_conflict='code,analysis_date').execute()
+    except Exception as e:
+        print(f"[History] Failed to save analysis history for {code}: {e}")
+
     return response
 
 
