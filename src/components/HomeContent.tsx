@@ -119,8 +119,8 @@ export default function HomeContent({ recommendations }: HomeContentProps) {
       }
     };
 
-    // 每次最多 2 个并发，避免后端过载
-    const concurrency = 2;
+    // 串行加载，Render 免费版只能处理 1 个并发分析请求
+    const concurrency = 1;
     for (let i = 0; i < watchlist.length; i += concurrency) {
       const batch = watchlist.slice(i, i + concurrency);
       await Promise.allSettled(
