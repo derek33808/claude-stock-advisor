@@ -567,6 +567,7 @@ export interface AIModel {
   provider: string;
   name: string;
   description: string;
+  free: boolean;
 }
 
 /**

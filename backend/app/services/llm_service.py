@@ -12,42 +12,67 @@ from app.http_client import get_client
 
 # 模型配置注册表
 MODEL_REGISTRY: Dict[str, Dict] = {
-    # 智谱 GLM 系列
+    # 智谱 GLM-4.7 系列（最新）
+    "glm-4.7": {
+        "provider": "zhipu",
+        "api_url": "https://open.bigmodel.cn/api/paas/v4/chat/completions",
+        "api_key_field": "glm_api_key",
+        "display_name": "GLM-4.7",
+        "description": "最新旗舰模型，能力最强（付费）",
+        "max_tokens": 4096,
+        "timeout": 60,
+        "free": False,
+    },
+    "glm-4.7-flash": {
+        "provider": "zhipu",
+        "api_url": "https://open.bigmodel.cn/api/paas/v4/chat/completions",
+        "api_key_field": "glm_api_key",
+        "display_name": "GLM-4.7-Flash",
+        "description": "最新轻量模型，免费",
+        "max_tokens": 4096,
+        "timeout": 20,
+        "free": True,
+    },
+    # 智谱 GLM-4 系列
     "glm-4-flash": {
         "provider": "zhipu",
         "api_url": "https://open.bigmodel.cn/api/paas/v4/chat/completions",
         "api_key_field": "glm_api_key",
         "display_name": "GLM-4-Flash",
-        "description": "智谱轻量模型，速度最快",
+        "description": "上代轻量模型，免费",
         "max_tokens": 4096,
         "timeout": 15,
+        "free": True,
     },
     "glm-4-air": {
         "provider": "zhipu",
         "api_url": "https://open.bigmodel.cn/api/paas/v4/chat/completions",
         "api_key_field": "glm_api_key",
         "display_name": "GLM-4-Air",
-        "description": "智谱均衡模型，性价比高",
+        "description": "均衡模型（付费）",
         "max_tokens": 4096,
         "timeout": 20,
+        "free": False,
     },
     "glm-4-plus": {
         "provider": "zhipu",
         "api_url": "https://open.bigmodel.cn/api/paas/v4/chat/completions",
         "api_key_field": "glm_api_key",
         "display_name": "GLM-4-Plus",
-        "description": "智谱旗舰模型，分析能力最强",
+        "description": "上代旗舰模型（付费）",
         "max_tokens": 4096,
         "timeout": 30,
+        "free": False,
     },
     "glm-4-long": {
         "provider": "zhipu",
         "api_url": "https://open.bigmodel.cn/api/paas/v4/chat/completions",
         "api_key_field": "glm_api_key",
         "display_name": "GLM-4-Long",
-        "description": "智谱长上下文模型，支持128K",
+        "description": "长上下文模型，128K（付费）",
         "max_tokens": 4096,
         "timeout": 30,
+        "free": False,
     },
     # DeepSeek 系列
     "deepseek-chat": {
@@ -55,23 +80,25 @@ MODEL_REGISTRY: Dict[str, Dict] = {
         "api_url": "https://api.deepseek.com/chat/completions",
         "api_key_field": "deepseek_api_key",
         "display_name": "DeepSeek-V3",
-        "description": "DeepSeek通用对话模型",
+        "description": "DeepSeek通用对话模型（付费）",
         "max_tokens": 4096,
         "timeout": 30,
+        "free": False,
     },
     "deepseek-reasoner": {
         "provider": "deepseek",
         "api_url": "https://api.deepseek.com/chat/completions",
         "api_key_field": "deepseek_api_key",
         "display_name": "DeepSeek-R1",
-        "description": "DeepSeek推理模型，深度分析",
+        "description": "DeepSeek推理模型（付费）",
         "max_tokens": 4096,
         "timeout": 60,
+        "free": False,
     },
 }
 
 # 默认模型
-DEFAULT_MODEL = "glm-4-flash"
+DEFAULT_MODEL = "glm-4.7-flash"
 
 
 def get_available_models() -> List[Dict]:
@@ -86,6 +113,7 @@ def get_available_models() -> List[Dict]:
                 "provider": config["provider"],
                 "name": config["display_name"],
                 "description": config["description"],
+                "free": config.get("free", False),
             })
     return models
 

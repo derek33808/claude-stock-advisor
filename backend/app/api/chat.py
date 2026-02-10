@@ -4,7 +4,7 @@ AI 股票问答 API
 
 from fastapi import APIRouter, Query
 from app.services import chat_service
-from app.services.llm_service import get_available_models
+from app.services.llm_service import get_available_models, DEFAULT_MODEL
 
 router = APIRouter()
 
@@ -15,7 +15,7 @@ async def list_models():
     models = get_available_models()
     return {
         "models": models,
-        "default": "glm-4-flash",
+        "default": DEFAULT_MODEL,
     }
 
 

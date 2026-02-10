@@ -156,6 +156,7 @@ export default function StockChatPanel({ code, stockName }: StockChatPanelProps)
                     {m.name} - {m.description}
                   </option>
                 ))}
+
               </select>
             </div>
           )}
