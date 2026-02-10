@@ -3,11 +3,10 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useWatchlist } from '@/lib/watchlist-context';
 import { StockRecommendation } from '@/lib/types';
-import { getBatchStockAnalyses, prefetchStocks, StockAnalysis } from '@/lib/api';
+import { getStockAnalysis, prefetchStocks, StockAnalysis } from '@/lib/api';
 import StockCard from './StockCard';
 import TabSwitcher, { TabType } from './TabSwitcher';
 import Link from 'next/link';
-import ProgressBar from './ProgressBar';
 
 interface HomeContentProps {
   recommendations: StockRecommendation[];
@@ -38,11 +37,33 @@ function convertToRecommendation(analysis: StockAnalysis): StockRecommendation {
   };
 }
 
+// 自选股占位符（加载中/失败时显示）
+function makePlaceholder(code: string, name: string): StockRecommendation {
+  return {
+    code,
+    name,
+    industry: '',
+    price: 0,
+    change: 0,
+    score: 0,
+    buyPriceLow: 0,
+    buyPriceHigh: 0,
+    stopLoss: 0,
+    takeProfit1: 0,
+    takeProfit2: 0,
+    holdingDays: '-',
+    positionRatio: '-',
+    reasons: { technical: [], fundamental: [], capital: [] },
+    riskLevel: 'medium',
+  };
+}
+
 export default function HomeContent({ recommendations }: HomeContentProps) {
   const { watchlist } = useWatchlist();
   const [activeTab, setActiveTab] = useState<TabType>('recommendations');
   const [watchlistStocks, setWatchlistStocks] = useState<StockRecommendation[]>([]);
   const [loadingWatchlist, setLoadingWatchlist] = useState(false);
+  const [loadedCount, setLoadedCount] = useState(0);
   const [watchlistError, setWatchlistError] = useState<string | null>(null);
 
   // 预加载状态（避免重复请求）
@@ -53,61 +74,61 @@ export default function HomeContent({ recommendations }: HomeContentProps) {
     if (prefetchedRef.current || recommendations.length === 0) return;
     prefetchedRef.current = true;
 
-    // 后台预加载，不等待结果
     const codes = recommendations.map(r => r.code);
-    prefetchStocks(codes).catch(() => {
-      // 预加载失败不影响用户体验，静默处理
-    });
+    prefetchStocks(codes).catch(() => {});
   }, [recommendations]);
 
-  // 稳定的自选股 key，避免 watchlist 对象引用变化导致无限重加载
+  // 稳定的自选股 key
   const watchlistKey = useMemo(() => watchlist.map(w => w.code).join(','), [watchlist]);
 
+  // 逐个加载自选股（渐进式，每完成一个立即显示）
   const loadWatchlistStocks = useCallback(async () => {
+    if (watchlist.length === 0) return;
+
     setLoadingWatchlist(true);
     setWatchlistError(null);
+    setLoadedCount(0);
 
-    try {
-      const codes = watchlist.map(item => item.code);
-      const { stocks: analyses } = await getBatchStockAnalyses(codes);
+    // 初始化占位符
+    const placeholders = watchlist.map(item => makePlaceholder(item.code, item.name));
+    setWatchlistStocks(placeholders);
 
-      // 将返回结果按代码索引，方便匹配
-      const analysisMap = new Map<string, StockAnalysis>();
-      for (const a of analyses) {
-        analysisMap.set(a.code, a);
+    let successCount = 0;
+    let failCount = 0;
+
+    // 并行加载所有股票，每个完成后立即更新 UI
+    const promises = watchlist.map(async (item, index) => {
+      try {
+        const analysis = await getStockAnalysis(item.code);
+        const rec = convertToRecommendation(analysis);
+
+        // 更新对应位置的股票数据
+        setWatchlistStocks(prev => {
+          const next = [...prev];
+          next[index] = rec;
+          return next;
+        });
+        successCount++;
+      } catch {
+        // 保留占位符，标记加载失败
+        setWatchlistStocks(prev => {
+          const next = [...prev];
+          next[index] = { ...placeholders[index], industry: '加载失败' };
+          return next;
+        });
+        failCount++;
+      } finally {
+        setLoadedCount(prev => prev + 1);
       }
+    });
 
-      // 按自选股顺序构建结果
-      const stocks: StockRecommendation[] = watchlist.map(item => {
-        const analysis = analysisMap.get(item.code);
-        if (analysis) {
-          return convertToRecommendation(analysis);
-        }
-        return {
-          code: item.code,
-          name: item.name,
-          industry: '加载失败',
-          price: 0,
-          change: 0,
-          score: 0,
-          buyPriceLow: 0,
-          buyPriceHigh: 0,
-          stopLoss: 0,
-          takeProfit1: 0,
-          takeProfit2: 0,
-          holdingDays: '-',
-          positionRatio: '-',
-          reasons: { technical: [], fundamental: [], capital: [] },
-          riskLevel: 'medium',
-        };
-      });
+    await Promise.allSettled(promises);
 
-      setWatchlistStocks(stocks);
-    } catch {
-      setWatchlistError('加载自选股失败，请检查网络');
-    } finally {
-      setLoadingWatchlist(false);
+    if (successCount === 0 && failCount > 0) {
+      setWatchlistError('加载自选股失败，请检查网络后重试');
     }
+
+    setLoadingWatchlist(false);
   }, [watchlist]);
 
   // 当切换到自选股 tab 或自选列表变化时，加载自选股数据
@@ -130,7 +151,6 @@ export default function HomeContent({ recommendations }: HomeContentProps) {
       {/* 智能推荐列表 */}
       {activeTab === 'recommendations' && (
         <div className="space-y-4">
-          {/* 说明 */}
           <div className="bg-blue-50 rounded-lg p-3 mb-4">
             <p className="text-xs text-blue-700">
               🤖 智能推荐：综合技术面 + AI基本面分析，为您精选高潜力股票
@@ -170,15 +190,7 @@ export default function HomeContent({ recommendations }: HomeContentProps) {
                 去添加 →
               </button>
             </div>
-          ) : loadingWatchlist ? (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-3"></div>
-              <p className="text-gray-500">加载自选股数据...</p>
-              <div className="mt-3 w-48 mx-auto">
-                <ProgressBar estimatedSeconds={10} color="blue" />
-              </div>
-            </div>
-          ) : watchlistError ? (
+          ) : watchlistError && loadedCount === 0 ? (
             <div className="bg-white rounded-xl shadow-sm border border-red-100 p-6 text-center">
               <div className="text-red-400 text-4xl mb-3">⚠️</div>
               <p className="text-sm text-gray-500">{watchlistError}</p>
@@ -191,9 +203,17 @@ export default function HomeContent({ recommendations }: HomeContentProps) {
             </div>
           ) : (
             <>
+              {/* 加载进度提示 */}
+              {loadingWatchlist && (
+                <div className="text-center text-xs text-gray-400 py-1">
+                  加载中 {loadedCount}/{watchlist.length}
+                </div>
+              )}
+
               {watchlistStocks.map((stock) => (
                 <StockCard key={stock.code} stock={stock} />
               ))}
+
               <div className="text-center py-4">
                 <Link
                   href="/search"
