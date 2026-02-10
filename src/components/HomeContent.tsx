@@ -94,10 +94,10 @@ export default function HomeContent({ recommendations }: HomeContentProps) {
     setWatchlistStocks(placeholders);
 
     let successCount = 0;
-    let failCount = 0;
+    let firstRoundFailed: number[] = [];
 
-    // 限制并发数的加载函数
-    const loadOne = async (item: { code: string; name: string }, index: number) => {
+    // 串行加载单只股票
+    const loadOne = async (item: { code: string; name: string }, index: number): Promise<boolean> => {
       try {
         const analysis = await getStockQuickAnalysis(item.code);
         const rec = convertToRecommendation(analysis);
@@ -107,28 +107,33 @@ export default function HomeContent({ recommendations }: HomeContentProps) {
           return next;
         });
         successCount++;
+        return true;
       } catch {
         setWatchlistStocks(prev => {
           const next = [...prev];
           next[index] = { ...placeholders[index], industry: '加载失败' };
           return next;
         });
-        failCount++;
+        return false;
       } finally {
         setLoadedCount(prev => prev + 1);
       }
     };
 
-    // 串行加载，Render 免费版只能处理 1 个并发分析请求
-    const concurrency = 1;
-    for (let i = 0; i < watchlist.length; i += concurrency) {
-      const batch = watchlist.slice(i, i + concurrency);
-      await Promise.allSettled(
-        batch.map((item, batchIdx) => loadOne(item, i + batchIdx))
-      );
+    // 第一轮：串行加载全部（Render 免费版只能处理 1 个并发）
+    for (let i = 0; i < watchlist.length; i++) {
+      const ok = await loadOne(watchlist[i], i);
+      if (!ok) firstRoundFailed.push(i);
     }
 
-    if (successCount === 0 && failCount > 0) {
+    // 第二轮：重试失败的（后端已热身，成功率更高）
+    if (firstRoundFailed.length > 0 && successCount > 0) {
+      for (const idx of firstRoundFailed) {
+        await loadOne(watchlist[idx], idx);
+      }
+    }
+
+    if (successCount === 0) {
       setWatchlistError('加载自选股失败，请检查网络后重试');
     }
 
