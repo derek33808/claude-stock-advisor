@@ -3,6 +3,7 @@ import SearchBox from '@/components/SearchBox';
 import Disclaimer from '@/components/Disclaimer';
 import RefreshAllButton from '@/components/RefreshAllButton';
 import HomeContent from '@/components/HomeContent';
+import AutoRetryLoader from '@/components/AutoRetryLoader';
 import { RecommendationData } from '@/lib/types';
 
 // 后端 API 地址
@@ -71,22 +72,9 @@ async function getRecommendationsFromAPI(): Promise<RecommendationData | null> {
 export default async function HomePage() {
   const data = await getRecommendationsFromAPI();
 
+  // SSR 失败时，渲染完整页面框架 + 客户端自动重试
   if (!data) {
-    return (
-      <main className="max-w-lg mx-auto px-4 py-6">
-        <div className="text-center py-12">
-          <div className="text-4xl mb-4">🔄</div>
-          <h1 className="text-xl font-bold text-gray-800 mb-2">正在连接后端服务</h1>
-          <p className="text-gray-500 mb-4">后端服务可能正在启动中（约需60秒）</p>
-          <a
-            href="/"
-            className="inline-block px-4 py-2 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600"
-          >
-            刷新重试
-          </a>
-        </div>
-      </main>
-    );
+    return <AutoRetryLoader />;
   }
 
   return (
