@@ -377,62 +377,37 @@ async def get_batch_stock_analyses(
         else:
             uncached_codes.append(code)
 
-    # 3. 未缓存的股票并行执行完整分析（带超时保护）
-    if uncached_codes:
-        semaphore = asyncio.Semaphore(3)
-
-        def _quote_fallback(stock_code: str) -> Optional[dict]:
-            """使用实时行情数据生成轻量级兜底响应"""
-            quote = batch_quotes.get(stock_code)
-            if quote:
-                return {
-                    "code": stock_code,
-                    "name": quote.get("name", stock_code),
-                    "industry": quote.get("industry", ""),
-                    "price": quote.get("price", 0),
-                    "change": quote.get("change", 0),
-                    "open": quote.get("open", 0),
-                    "high": quote.get("high", 0),
-                    "low": quote.get("low", 0),
-                    "prev_close": quote.get("prev_close", 0),
-                    "volume": quote.get("volume", 0),
-                    "amount": quote.get("amount", 0),
-                    "market_cap": quote.get("market_cap", 0),
-                    "score": 0,
-                    "indicators": {},
-                    "suggestion": {
-                        "action": "数据加载中",
-                        "buy_price": {"low": 0, "high": 0},
-                        "stop_loss": 0,
-                        "take_profit": {"target1": 0, "target2": 0},
-                        "holding_days": "-",
-                        "position_ratio": "-",
-                        "risk_level": "medium",
-                    },
-                    "reasons": ["数据正在加载中"],
-                }
-            return None
-
-        async def _analyze_one(stock_code: str) -> Optional[dict]:
-            async with semaphore:
-                try:
-                    return await asyncio.wait_for(
-                        _do_full_analysis(stock_code, ai_analysis=False, skip_ai_summary=True),
-                        timeout=12,
-                    )
-                except asyncio.TimeoutError:
-                    print(f"[Batch] Timeout analyzing {stock_code}, using quote fallback")
-                    return _quote_fallback(stock_code)
-                except Exception as e:
-                    print(f"[Batch] Error analyzing {stock_code}: {e}")
-                    return _quote_fallback(stock_code)
-
-        parallel_results = await asyncio.gather(
-            *[_analyze_one(c) for c in uncached_codes]
-        )
-        for r in parallel_results:
-            if r is not None:
-                results.append(r)
+    # 3. 未缓存的股票：直接用行情数据生成轻量响应（快速返回）
+    #    完整分析留给用户点击详情页时再做，避免批量接口超时
+    for stock_code in uncached_codes:
+        quote = batch_quotes.get(stock_code)
+        if quote:
+            results.append({
+                "code": stock_code,
+                "name": quote.get("name", stock_code),
+                "industry": quote.get("industry", ""),
+                "price": quote.get("price", 0),
+                "change": quote.get("change", 0),
+                "open": quote.get("open", 0),
+                "high": quote.get("high", 0),
+                "low": quote.get("low", 0),
+                "prev_close": quote.get("prev_close", 0),
+                "volume": quote.get("volume", 0),
+                "amount": quote.get("amount", 0),
+                "market_cap": quote.get("market_cap", 0),
+                "score": 0,
+                "indicators": {},
+                "suggestion": {
+                    "action": "点击查看详情",
+                    "buy_price": {"low": 0, "high": 0},
+                    "stop_loss": 0,
+                    "take_profit": {"target1": 0, "target2": 0},
+                    "holding_days": "-",
+                    "position_ratio": "-",
+                    "risk_level": "medium",
+                },
+                "reasons": [],
+            })
 
     return {
         "count": len(results),
