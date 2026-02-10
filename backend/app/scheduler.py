@@ -269,10 +269,25 @@ async def evaluation_job():
         print(f"[Scheduler] Stack trace:\n{traceback.format_exc()}")
 
 
+@scheduler.scheduled_job('interval', minutes=13, id='keep_alive')
+async def keep_alive_job():
+    """
+    每13分钟自我ping，防止Render免费版15分钟休眠。
+    比GitHub Actions cron更可靠（GA cron不保证精确执行）。
+    """
+    try:
+        from app.http_client import get_client
+        client = get_client()
+        resp = await client.get("https://stock-advisor-api-6vtb.onrender.com/health", timeout=10)
+        print(f"[Keep-Alive] Ping OK - status {resp.status_code}")
+    except Exception as e:
+        print(f"[Keep-Alive] Ping failed: {e}")
+
+
 def start_scheduler():
     """启动调度器"""
     scheduler.start()
-    print("[Scheduler] Started")
+    print("[Scheduler] Started (includes keep-alive every 13min)")
 
 
 def stop_scheduler():
