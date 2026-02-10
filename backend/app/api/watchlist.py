@@ -37,7 +37,7 @@ async def add_watchlist(data: WatchlistAddRequest):
         # 如果没有提供 name，自动获取
         name = data.name
         if not name:
-            quote = eastmoney_service.get_realtime(data.code)
+            quote = await eastmoney_service.get_realtime(data.code)
             if quote:
                 name = quote['name']
             else:
@@ -97,7 +97,7 @@ async def get_watchlist(user_id: str = Query("default_user", description="用户
 
         # 获取每只股票的实时行情
         for item in watchlist:
-            quote = eastmoney_service.get_realtime(item['code'])
+            quote = await eastmoney_service.get_realtime(item['code'])
             if quote:
                 item['price'] = quote['price']
                 item['change'] = quote['change']
