@@ -113,9 +113,8 @@ async def refresh_all(data: RefreshAllRequest):
                             return stock_code, False
 
                 # 启动并行刷新任务
-                gather_task = asyncio.create_task(
-                    asyncio.gather(*[_refresh_one(c) for c in codes])
-                )
+                # asyncio.gather 返回 Future（非 coroutine），不能传给 create_task
+                gather_future = asyncio.gather(*[_refresh_one(c) for c in codes])
 
                 # 实时消费进度队列，推送 SSE 事件
                 finished = 0
@@ -132,7 +131,7 @@ async def refresh_all(data: RefreshAllRequest):
                         yield f"data: {json.dumps({'event': 'progress', 'phase': 'stocks', 'current': f'处理中... ({finished}/{len(codes)})', 'progress': int(tasks_completed / total_tasks * 100), 'completed': tasks_completed, 'total': total_tasks})}\n\n"
 
                 # 确保 gather 完成
-                await gather_task
+                await gather_future
 
                 yield f"data: {json.dumps({'event': 'progress', 'phase': 'stocks_done', 'current': f'股票刷新完成 ({tasks_completed - (1 if include_recommendations else 0)}/{len(codes)})', 'progress': int(tasks_completed / total_tasks * 100), 'completed': tasks_completed, 'total': total_tasks})}\n\n"
 

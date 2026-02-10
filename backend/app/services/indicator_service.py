@@ -238,13 +238,14 @@ def calculate_indicators(df: pd.DataFrame) -> dict:
     return result
 
 
-def calculate_trading_suggestion(df: pd.DataFrame, indicators: dict) -> dict:
+def calculate_trading_suggestion(df: pd.DataFrame, indicators: dict, current_price: float = None) -> dict:
     """
     根据技术指标生成交易建议
 
     Args:
         df: 历史数据
         indicators: 技术指标
+        current_price: 实时价格（优先使用，避免历史数据与实时价格不一致）
 
     Returns:
         dict with buy_price, stop_loss, take_profit, etc.
@@ -252,7 +253,7 @@ def calculate_trading_suggestion(df: pd.DataFrame, indicators: dict) -> dict:
     if df is None or df.empty:
         return {}
 
-    close = df["close"].iloc[-1]
+    close = current_price if current_price else df["close"].iloc[-1]
     high_20 = df["high"].tail(20).max()
     low_20 = df["low"].tail(20).min()
 

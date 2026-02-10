@@ -136,7 +136,7 @@ async def _do_full_analysis(code: str, ai_analysis: bool = True, skip_ai_summary
 
     # 计算技术指标
     indicators = indicator_service.calculate_indicators(df)
-    suggestion = indicator_service.calculate_trading_suggestion(df, indicators)
+    suggestion = indicator_service.calculate_trading_suggestion(df, indicators, current_price=realtime["price"])
     reasons_raw = indicator_service.generate_reasons(indicators)
     score = indicator_service.calculate_score(indicators, suggestion)
 
@@ -514,7 +514,7 @@ async def get_stock_ai_analysis(code: str):
 
     # 计算技术指标
     indicators = indicator_service.calculate_indicators(df)
-    suggestion = indicator_service.calculate_trading_suggestion(df, indicators)
+    suggestion = indicator_service.calculate_trading_suggestion(df, indicators, current_price=realtime["price"])
     score = indicator_service.calculate_score(indicators, suggestion)
 
     # 获取完整 AI 分析
@@ -615,7 +615,7 @@ async def get_ai_rankings(
                     return None
 
                 indicators = indicator_service.calculate_indicators(df)
-                suggestion = indicator_service.calculate_trading_suggestion(df, indicators)
+                suggestion = indicator_service.calculate_trading_suggestion(df, indicators, current_price=realtime["price"])
                 score = indicator_service.calculate_score(indicators, suggestion)
 
                 vol = indicators.get("volume", {})

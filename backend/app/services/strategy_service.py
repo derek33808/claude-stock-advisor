@@ -204,12 +204,12 @@ async def analyze_stock(code: str) -> Optional[dict]:
         dict with full analysis
     """
     # 获取历史数据
-    df = eastmoney_service.get_history(code, days=60)
+    df = await eastmoney_service.get_history(code, days=60)
     if df is None or df.empty:
         return None
 
     # 获取实时行情
-    realtime = eastmoney_service.get_realtime(code)
+    realtime = await eastmoney_service.get_realtime(code)
     if realtime is None:
         return None
 
@@ -217,7 +217,7 @@ async def analyze_stock(code: str) -> Optional[dict]:
     indicators = indicator_service.calculate_indicators(df)
 
     # 生成交易建议
-    suggestion = indicator_service.calculate_trading_suggestion(df, indicators)
+    suggestion = indicator_service.calculate_trading_suggestion(df, indicators, current_price=realtime["price"])
 
     # 生成推荐理由
     reasons = indicator_service.generate_reasons(indicators)
@@ -278,7 +278,7 @@ async def generate_daily_recommendations(top_n: int = 10) -> list[dict]:
                 # 获取 AI 基本面分析
                 ai_analysis = None
                 try:
-                    ai_analysis = get_full_ai_analysis(
+                    ai_analysis = await get_full_ai_analysis(
                         name=analysis["name"],
                         code=analysis["code"],
                         industry=analysis["industry"],

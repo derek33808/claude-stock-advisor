@@ -78,7 +78,7 @@ async def generate_comprehensive_analysis(code: str) -> Dict:
 async def _get_technical_analysis(history, quote) -> Dict:
     """技术面分析"""
     indicators = indicator_service.calculate_indicators(history)
-    suggestion = indicator_service.calculate_trading_suggestion(history, indicators)
+    suggestion = indicator_service.calculate_trading_suggestion(history, indicators, current_price=quote.get("price"))
     score = indicator_service.calculate_score(indicators, suggestion)
 
     return {
