@@ -158,6 +158,9 @@ async def call_llm(
             if resp.status_code == 401:
                 return None, "auth_failed"
             elif resp.status_code == 429:
+                # 区分限流和余额不足
+                if "1113" in error_body or "余额" in error_body or "quota" in error_body.lower():
+                    return None, "quota_exhausted"
                 return None, "rate_limited"
             elif resp.status_code >= 500:
                 return None, "unavailable"

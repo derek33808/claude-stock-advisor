@@ -260,7 +260,7 @@ def find_similar_answer(code: str, question: str, template: Optional[str] = None
         return None
 
 
-async def call_chat_llm(system_prompt: str, user_prompt: str, model_id: Optional[str] = None) -> Optional[dict]:
+async def call_chat_llm(system_prompt: str, user_prompt: str, model_id: Optional[str] = None) -> dict:
     """调用大模型进行问答（统一路由）"""
     content, error_type = await call_llm(
         system_prompt, user_prompt,
@@ -270,20 +270,22 @@ async def call_chat_llm(system_prompt: str, user_prompt: str, model_id: Optional
 
     if error_type:
         error_messages = {
-            "auth_failed": "API 认证失败",
-            "rate_limited": "请求过于频繁",
-            "quota_exhausted": "API 配额已用尽",
-            "no_api_key": "模型未配置 API Key",
+            "auth_failed": "API 认证失败，请检查 API Key",
+            "rate_limited": "请求过于频繁，请稍后重试",
+            "quota_exhausted": "该模型额度已用尽，请切换到 GLM-4-Flash（免费）",
+            "no_api_key": "该模型未配置 API Key",
+            "timeout": "AI 响应超时，请稍后重试",
+            "unavailable": "AI 服务暂时不可用，请稍后重试",
         }
         msg = error_messages.get(error_type, f"AI 错误: {error_type}")
         _ai_model_status.set_error(error_type, msg)
-        return None
+        return {"error": True, "message": msg}
 
     if content:
         _ai_model_status.clear_error()
         return {"answer": content, "tokens_used": 0}
 
-    return None
+    return {"error": True, "message": "AI 未返回结果，请重试"}
 
 
 def save_chat_history(
@@ -405,12 +407,9 @@ async def ask_question(
     user_prompt = build_chat_prompt(stock_context, question, template)
     result = await call_chat_llm(CHAT_SYSTEM_PROMPT, user_prompt, model_id=model_id)
 
-    if not result:
-        return {
-            "error": True,
-            "message": "AI 暂时无法回答，请稍后重试",
-            "remaining_quota": remaining,
-        }
+    if result.get("error"):
+        result["remaining_quota"] = remaining
+        return result
 
     # 5. 保存记录
     save_chat_history(code, user_id, question, result["answer"], template, result["tokens_used"])
