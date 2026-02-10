@@ -5,18 +5,20 @@ import RefreshAllButton from '@/components/RefreshAllButton';
 import HomeContent from '@/components/HomeContent';
 import { RecommendationData } from '@/lib/types';
 
-// 强制动态渲染
-export const dynamic = 'force-dynamic';
-
 // 后端 API 地址
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 async function getRecommendationsFromAPI(): Promise<RecommendationData | null> {
   try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+
     const res = await fetch(`${API_BASE}/api/v1/recommendations`, {
       cache: 'no-store',
-      next: { revalidate: 0 },
+      signal: controller.signal,
     });
+
+    clearTimeout(timeout);
 
     if (!res.ok) return null;
 

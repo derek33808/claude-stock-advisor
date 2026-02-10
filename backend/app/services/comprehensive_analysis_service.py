@@ -1,6 +1,7 @@
 """
 综合分析服务（5维分析orchestrator）
 整合技术面、基本面、新闻、财报、行业分析，生成完整的综合分析
+全部使用异步调用
 """
 
 import asyncio
@@ -17,32 +18,16 @@ from app.services import (
 async def generate_comprehensive_analysis(code: str) -> Dict:
     """
     生成完整的5维综合分析
-
-    流程:
-    1. 并行获取5个维度的数据
-    2. 调用GLM-4生成综合分析
-    3. 返回结构化结果
-
-    Returns:
-        {
-            'code': 股票代码,
-            'name': 股票名称,
-            'quote': 实时行情,
-            'technical_analysis': {...},
-            'company_analysis': {...},
-            'fundamental_analysis': {...},
-            'recent_developments': {...},
-            'industry_analysis': {...},
-            'comprehensive_summary': {...},
-            'trading_suggestion': {...}
-        }
     """
-    # 步骤1: 获取基础数据
-    quote = eastmoney_service.get_realtime(code)
+    # 步骤1: 并行获取基础数据
+    quote, history = await asyncio.gather(
+        eastmoney_service.get_realtime(code),
+        eastmoney_service.get_history(code, days=60),
+    )
+
     if not quote:
         raise ValueError(f"无法获取股票 {code} 的数据")
 
-    history = eastmoney_service.get_history(code, days=60)
     if history is None or history.empty:
         raise ValueError(f"无法获取股票 {code} 的历史数据")
 
@@ -105,7 +90,7 @@ async def _get_technical_analysis(history, quote) -> Dict:
         },
         'score': score,
         'prediction': suggestion.get('action', '观望'),
-        'ai_comment': ''  # 将由AI生成
+        'ai_comment': ''
     }
 
 
@@ -116,13 +101,13 @@ async def _get_company_analysis(code: str, quote: Dict) -> Dict:
         'market_cap': quote.get('market_cap', 0),
         'business_overview': '暂无数据',
         'competitive_advantage': [],
-        'ai_comment': ''  # 将由AI生成
+        'ai_comment': ''
     }
 
 
 async def _get_fundamental_analysis(code: str) -> Dict:
-    """基本面分析"""
-    report = fundamental_service.get_latest_financial_report(code)
+    """基本面分析（异步）"""
+    report = await fundamental_service.get_latest_financial_report(code)
 
     if report:
         return {
@@ -132,7 +117,7 @@ async def _get_fundamental_analysis(code: str) -> Dict:
             'revenue_growth': report.get('revenue_yoy', 0),
             'profit_margin': 0,
             'latest_report': report,
-            'ai_comment': ''  # 将由AI生成
+            'ai_comment': ''
         }
 
     return {
@@ -147,13 +132,13 @@ async def _get_fundamental_analysis(code: str) -> Dict:
 
 
 async def _get_recent_developments(code: str) -> Dict:
-    """近期动态"""
-    news = news_service.get_recent_news(code, days=7)
-    announcements = news_service.get_announcements(code, days=30)
+    """近期动态（异步）"""
+    news_list = await news_service.get_recent_news(code, days=7)
+    announcements = await news_service.get_announcements(code, days=30)
 
     # 计算情绪
-    positive_count = len([n for n in news if n['type'] == '利好'])
-    negative_count = len([n for n in news if n['type'] == '利空'])
+    positive_count = len([n for n in news_list if n['type'] == '利好'])
+    negative_count = len([n for n in news_list if n['type'] == '利空'])
 
     if positive_count > negative_count:
         sentiment = 'positive'
@@ -163,10 +148,10 @@ async def _get_recent_developments(code: str) -> Dict:
         sentiment = 'neutral'
 
     return {
-        'news': news[:5],
+        'news': news_list[:5],
         'announcements': announcements[:3],
         'sentiment': sentiment,
-        'ai_impact': ''  # 将由AI生成
+        'ai_impact': ''
     }
 
 
@@ -189,7 +174,7 @@ async def _get_industry_analysis(industry_name: str) -> Dict:
             'trend': industry_data.get('trend', '震荡'),
             'peer_comparison': industry_data.get('leading_stocks', []),
             'fund_flow': industry_data.get('fund_flow', {}),
-            'ai_comment': ''  # 将由AI生成
+            'ai_comment': ''
         }
 
     return {
@@ -210,10 +195,7 @@ async def _generate_ai_summary(
     news: Dict,
     industry: Dict
 ) -> Dict:
-    """
-    生成综合分析摘要（基于规则的分析）
-    """
-    # 直接使用基础分析（AI功能暂时禁用）
+    """生成综合分析摘要（基于规则的分析）"""
     return {
         'summary': {
             'investment_thesis': f"{quote['name']} 技术评分{technical['score']}分，{technical['prediction']}",
@@ -280,7 +262,6 @@ def _generate_trading_suggestion(quote: Dict, technical: Dict) -> Dict:
     price = quote['price']
     score = technical['score']
 
-    # 根据技术评分调整建议价格
     if score >= 70:
         return {
             'buy_price_low': round(price * 0.98, 2),

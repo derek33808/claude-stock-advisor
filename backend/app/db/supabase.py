@@ -1,9 +1,10 @@
+from typing import Optional
 from supabase import create_client, Client
 from app.config import get_settings
 
 settings = get_settings()
 
-_supabase_client: Client | None = None
+_supabase_client: Optional[Client] = None
 
 
 def get_supabase() -> Client:
@@ -128,7 +129,7 @@ async def save_market_overview(date: str, overview: dict) -> bool:
         return False
 
 
-async def get_market_overview(date: str) -> dict | None:
+async def get_market_overview(date: str) -> Optional[dict]:
     """Get market overview for a date"""
     try:
         supabase = get_supabase()
@@ -226,7 +227,7 @@ async def get_performance_stats(days: int = 30) -> dict:
 # Stock Cache CRUD
 # ============================================
 
-async def get_cached_stock(code: str) -> dict | None:
+async def get_cached_stock(code: str) -> Optional[dict]:
     """Get cached stock data"""
     try:
         supabase = get_supabase()

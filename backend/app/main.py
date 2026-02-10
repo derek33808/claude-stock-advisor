@@ -14,6 +14,7 @@ from app.api import (
     chat,
 )
 from app.scheduler import start_scheduler, stop_scheduler
+from app.http_client import close_client
 
 settings = get_settings()
 
@@ -61,6 +62,8 @@ async def shutdown_event():
     """应用关闭时执行"""
     print("[Shutdown] Stopping scheduler...")
     stop_scheduler()
+    print("[Shutdown] Closing HTTP client...")
+    await close_client()
     print("[Shutdown] Stock Advisor v3.0 stopped")
 
 
@@ -105,12 +108,12 @@ async def debug_stock(code: str):
 
     # Test EastMoney directly
     try:
-        df_em = eastmoney_service.get_stock_history(code, days=60)
+        df_em = await eastmoney_service.get_stock_history(code, days=60)
         result["eastmoney"]["history"] = {
             "success": df_em is not None and not df_em.empty,
             "rows": len(df_em) if df_em is not None else 0
         }
-        rt_em = eastmoney_service.get_stock_realtime(code)
+        rt_em = await eastmoney_service.get_stock_realtime(code)
         result["eastmoney"]["realtime"] = {
             "success": rt_em is not None,
             "price": rt_em.get("price") if rt_em else None
@@ -135,12 +138,12 @@ async def debug_stock(code: str):
 
     # Test combined (with fallback)
     try:
-        df = eastmoney_service.get_history(code, days=60)
+        df = await eastmoney_service.get_history(code, days=60)
         result["combined"]["history"] = {
             "success": df is not None and not df.empty,
             "rows": len(df) if df is not None else 0
         }
-        rt = eastmoney_service.get_realtime(code)
+        rt = await eastmoney_service.get_realtime(code)
         result["combined"]["realtime"] = {
             "success": rt is not None,
             "price": rt.get("price") if rt else None

@@ -1,10 +1,12 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { API_BASE_URL } from '@/lib/api';
 import ProgressBar from './ProgressBar';
 
 export default function RefreshAllButton() {
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [message, setMessage] = useState('');
@@ -18,6 +20,10 @@ export default function RefreshAllButton() {
     setProgress(0);
     setCurrentTask('准备刷新...');
 
+    // 全局超时控制（5分钟）
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 300000);
+
     try {
       // 使用 SSE 调用全局刷新 API
       const response = await fetch(`${API_BASE_URL}/refresh/all`, {
@@ -30,6 +36,7 @@ export default function RefreshAllButton() {
           include_recommendations: true,  // 生成推荐
           include_watchlist: true,        // 刷新自选股
         }),
+        signal: controller.signal,
       });
 
       if (!response.ok) {
@@ -46,17 +53,24 @@ export default function RefreshAllButton() {
 
       let recommendationsCount = 0;
       let stocksCount = 0;
+      let buffer = '';
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n');
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || ''; // 保留未完成的行
 
         for (const line of lines) {
           if (line.startsWith('data: ')) {
-            const data = JSON.parse(line.slice(6));
+            let data;
+            try {
+              data = JSON.parse(line.slice(6));
+            } catch {
+              continue; // 跳过无法解析的行
+            }
 
             if (data.event === 'progress') {
               setProgress(data.progress || 0);
@@ -75,9 +89,9 @@ export default function RefreshAllButton() {
                 `刷新完成！生成 ${recommendationsCount} 支推荐${stocksCount > 0 ? `，刷新 ${stocksCount} 只自选股` : ''}`
               );
 
-              // 延迟刷新页面
+              // 延迟后使用 router.refresh 代替 window.location.reload
               setTimeout(() => {
-                window.location.reload();
+                router.refresh();
               }, 1500);
               return;
             } else if (data.event === 'error') {
@@ -88,9 +102,15 @@ export default function RefreshAllButton() {
       }
 
     } catch (err) {
-      setStatus('error');
-      setMessage(err instanceof Error ? err.message : '网络错误，请检查后端服务');
+      if (err instanceof Error && err.name === 'AbortError') {
+        setStatus('error');
+        setMessage('刷新超时（超过5分钟），请稍后重试');
+      } else {
+        setStatus('error');
+        setMessage(err instanceof Error ? err.message : '网络错误，请检查后端服务');
+      }
     } finally {
+      clearTimeout(timeout);
       setLoading(false);
     }
   };

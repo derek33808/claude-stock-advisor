@@ -1,27 +1,34 @@
 """
 股票查询 API
+全面异步化 + 并行化优化
 """
 
+import asyncio
+from typing import Optional
 from fastapi import APIRouter, HTTPException, Query
 from datetime import datetime, timedelta
+from cachetools import TTLCache
 from app.services import eastmoney_service, indicator_service, strategy_service
-from app.services.glm_service import generate_summary_with_fallback
+from app.services.glm_service import generate_summary_with_fallback, generate_template_summary
 from app.services.ai_analysis_service import get_full_ai_analysis, calculate_ai_ranking_score, get_ai_model_status
 from app.services import cache_service
 from app.models.schemas import StockAnalysis
 
 router = APIRouter()
 
-# AI 排名缓存（内存缓存，有效期 30 分钟）
-_ai_rankings_cache = {
-    "data": None,
-    "updated_at": None,
-    "cache_duration": timedelta(minutes=30)
-}
+# AI 排名缓存（TTLCache，30分钟过期，最多1条）
+_ai_rankings_cache: TTLCache = TTLCache(maxsize=1, ttl=1800)
+_AI_RANKINGS_KEY = "rankings"
 
-# 单股票分析缓存（内存缓存，有效期 3 分钟 - 盘中数据变化快）
-_stock_analysis_cache: dict = {}
-_stock_cache_duration = timedelta(minutes=3)
+# 单股票分析缓存（TTLCache，交易时段3分钟/非交易时段30分钟，最多200条）
+_stock_analysis_cache: TTLCache = TTLCache(maxsize=200, ttl=180)
+
+
+def _get_stock_cache_ttl() -> int:
+    """智能缓存过期：交易时段3分钟，非交易时段30分钟"""
+    if cache_service._is_trading_hours():
+        return 180  # 3 minutes
+    return 1800  # 30 minutes
 
 
 # 搜索路由使用 /stocks/search (复数) 避免与 /stock/{code} 冲突
@@ -39,7 +46,7 @@ async def search_stocks(q: str = Query(..., min_length=1, description="搜索关
             detail="请输入搜索关键词"
         )
 
-    results = eastmoney_service.search_stocks(q, limit=limit)
+    results = await eastmoney_service.search_stocks(q, limit=limit)
 
     return {
         "query": q,
@@ -57,31 +64,24 @@ async def get_stock_analysis(
     """
     获取股票完整分析（三层缓存优先）
 
-    - code: 股票代码（如 600519, 000001, 512930）
-    - ai_analysis: 是否包含 AI 智能分析
-    - refresh: 强制刷新缓存（跳过所有缓存，重新分析）
-
-    缓存策略：L1 内存(30秒) -> L2 Supabase(4小时) -> L3 数据源(实时)
+    缓存策略：L1 内存(智能TTL) -> L2 Supabase(4小时) -> L3 数据源(实时)
     """
-    global _stock_analysis_cache
-
     # ===== 非刷新模式：尝试从缓存读取 =====
     if not refresh:
-        # L1: 内存缓存 (3分钟)
+        # L1: 内存缓存 (TTLCache 自动过期)
         cache_key = f"{code}_{ai_analysis}"
-        if cache_key in _stock_analysis_cache:
-            cached = _stock_analysis_cache[cache_key]
-            if datetime.now() - cached["updated_at"] < _stock_cache_duration:
-                response = cached["data"].copy()
-                response["cached"] = True
-                response["cache_time"] = cached["updated_at"].strftime("%H:%M:%S")
-                response["cache_info"] = {
-                    "cached": True,
-                    "level": "L1",
-                    "analysis_updated_at": cached["updated_at"].isoformat(),
-                    "quote_fresh": True,
-                }
-                return response
+        cached = _stock_analysis_cache.get(cache_key)
+        if cached:
+            response = cached["data"].copy()
+            response["cached"] = True
+            response["cache_time"] = cached["updated_at"].strftime("%H:%M:%S")
+            response["cache_info"] = {
+                "cached": True,
+                "level": "L1",
+                "analysis_updated_at": cached["updated_at"].isoformat(),
+                "quote_fresh": True,
+            }
+            return response
 
         # L2: Supabase 持久缓存 (4小时)
         db_cached = cache_service.get_cached_analysis(code)
@@ -89,7 +89,7 @@ async def get_stock_analysis(
             # 获取实时价格（内存缓存30秒）
             realtime = cache_service.get_cached_quote(code)
             if not realtime:
-                realtime = eastmoney_service.get_realtime(code)
+                realtime = await eastmoney_service.get_realtime(code)
                 if realtime:
                     cache_service.set_cached_quote(code, realtime)
 
@@ -107,20 +107,26 @@ async def get_stock_analysis(
     return await _do_full_analysis(code, ai_analysis)
 
 
-async def _do_full_analysis(code: str, ai_analysis: bool = True) -> dict:
-    """执行完整的股票分析流程并写入所有缓存层"""
-    global _stock_analysis_cache
+async def _do_full_analysis(code: str, ai_analysis: bool = True, skip_ai_summary: bool = False) -> dict:
+    """执行完整的股票分析流程并写入所有缓存层
 
-    # 获取历史数据
-    df = eastmoney_service.get_history(code, days=60)
+    Args:
+        code: 股票代码
+        ai_analysis: 是否包含 AI 智能分析
+        skip_ai_summary: 跳过 GLM AI 摘要生成，使用纯模板（批量接口用）
+    """
+    # 并行获取历史数据和实时行情
+    df, realtime = await asyncio.gather(
+        eastmoney_service.get_history(code, days=60),
+        eastmoney_service.get_realtime(code),
+    )
+
     if df is None or df.empty:
         raise HTTPException(
             status_code=404,
             detail=f"无法获取股票 {code} 的数据，请检查代码是否正确"
         )
 
-    # 获取实时行情
-    realtime = eastmoney_service.get_realtime(code)
     if realtime is None:
         raise HTTPException(
             status_code=404,
@@ -216,16 +222,67 @@ async def _do_full_analysis(code: str, ai_analysis: bool = True) -> dict:
     if not reasons:
         reasons = ["数据正在分析中"]
 
-    summary = generate_summary_with_fallback(
-        name=realtime["name"],
-        code=code,
-        price=realtime["price"],
-        change=realtime["change"],
-        score=score,
-        suggestion=formatted_suggestion,
-        indicators=formatted_indicators,
-        reasons=reasons,
-    )
+    # 生成摘要和 AI 分析可以并行
+    if skip_ai_summary:
+        summary = generate_template_summary(
+            name=realtime["name"],
+            code=code,
+            price=realtime["price"],
+            change=realtime["change"],
+            score=score,
+            suggestion=formatted_suggestion,
+            indicators=formatted_indicators,
+            reasons=reasons,
+        )
+        ai_result = None
+        if ai_analysis:
+            ai_result = await get_full_ai_analysis(
+                name=realtime["name"],
+                code=code,
+                industry=realtime.get("industry", "未知"),
+                price=realtime["price"],
+                change=realtime["change"],
+                market_cap=realtime.get("market_cap", 0),
+                score=score,
+                indicators=indicators,
+                suggestion=suggestion,
+            )
+    elif ai_analysis:
+        # 并行执行 AI 摘要 和 AI 全面分析
+        summary_task = generate_summary_with_fallback(
+            name=realtime["name"],
+            code=code,
+            price=realtime["price"],
+            change=realtime["change"],
+            score=score,
+            suggestion=formatted_suggestion,
+            indicators=formatted_indicators,
+            reasons=reasons,
+        )
+        ai_task = get_full_ai_analysis(
+            name=realtime["name"],
+            code=code,
+            industry=realtime.get("industry", "未知"),
+            price=realtime["price"],
+            change=realtime["change"],
+            market_cap=realtime.get("market_cap", 0),
+            score=score,
+            indicators=indicators,
+            suggestion=suggestion,
+        )
+        summary, ai_result = await asyncio.gather(summary_task, ai_task)
+    else:
+        summary = await generate_summary_with_fallback(
+            name=realtime["name"],
+            code=code,
+            price=realtime["price"],
+            change=realtime["change"],
+            score=score,
+            suggestion=formatted_suggestion,
+            indicators=formatted_indicators,
+            reasons=reasons,
+        )
+        ai_result = None
 
     response = {
         "code": code,
@@ -247,18 +304,7 @@ async def _do_full_analysis(code: str, ai_analysis: bool = True) -> dict:
         "summary": summary,
     }
 
-    if ai_analysis:
-        ai_result = get_full_ai_analysis(
-            name=realtime["name"],
-            code=code,
-            industry=realtime.get("industry", "未知"),
-            price=realtime["price"],
-            change=realtime["change"],
-            market_cap=realtime.get("market_cap", 0),
-            score=score,
-            indicators=indicators,
-            suggestion=suggestion,
-        )
+    if ai_result:
         response["ai_analysis"] = ai_result
 
         ai_ranking_score = calculate_ai_ranking_score(
@@ -272,7 +318,7 @@ async def _do_full_analysis(code: str, ai_analysis: bool = True) -> dict:
 
     # ===== 写入所有缓存层 =====
 
-    # L1: 内存缓存
+    # L1: 内存缓存 (TTLCache)
     cache_key = f"{code}_{ai_analysis}"
     _stock_analysis_cache[cache_key] = {
         "data": response,
@@ -315,8 +361,8 @@ async def get_batch_stock_analyses(
     # 1. 批量获取 Supabase 缓存
     cached_analyses = cache_service.get_cached_analyses_batch(code_list)
 
-    # 2. 批量获取实时价格（单次 HTTP）
-    batch_quotes = eastmoney_service.get_batch_realtime(code_list)
+    # 2. 批量获取实时价格（单次 HTTP，异步）
+    batch_quotes = await eastmoney_service.get_batch_realtime(code_list)
     cache_service.set_cached_quotes_batch(batch_quotes)
 
     results = []
@@ -331,33 +377,44 @@ async def get_batch_stock_analyses(
         else:
             uncached_codes.append(code)
 
-    # 3. 未缓存的股票执行完整分析
-    for code in uncached_codes:
-        try:
-            analysis = await _do_full_analysis(code, ai_analysis=False)
-            results.append(analysis)
-        except Exception:
-            quote = batch_quotes.get(code)
-            if quote:
-                results.append({
-                    "code": code,
-                    "name": quote.get("name", code),
-                    "industry": "",
-                    "price": quote.get("price", 0),
-                    "change": quote.get("change", 0),
-                    "score": 0,
-                    "indicators": {},
-                    "suggestion": {
-                        "action": "数据加载中",
-                        "buy_price": {"low": 0, "high": 0},
-                        "stop_loss": 0,
-                        "take_profit": {"target1": 0, "target2": 0},
-                        "holding_days": "-",
-                        "position_ratio": "-",
-                        "risk_level": "medium",
-                    },
-                    "reasons": ["数据正在加载中"],
-                })
+    # 3. 未缓存的股票并行执行完整分析（直接在主事件循环中用 gather + semaphore）
+    if uncached_codes:
+        semaphore = asyncio.Semaphore(5)
+
+        async def _analyze_one(stock_code: str) -> Optional[dict]:
+            async with semaphore:
+                try:
+                    return await _do_full_analysis(stock_code, ai_analysis=False, skip_ai_summary=True)
+                except Exception:
+                    quote = batch_quotes.get(stock_code)
+                    if quote:
+                        return {
+                            "code": stock_code,
+                            "name": quote.get("name", stock_code),
+                            "industry": "",
+                            "price": quote.get("price", 0),
+                            "change": quote.get("change", 0),
+                            "score": 0,
+                            "indicators": {},
+                            "suggestion": {
+                                "action": "数据加载中",
+                                "buy_price": {"low": 0, "high": 0},
+                                "stop_loss": 0,
+                                "take_profit": {"target1": 0, "target2": 0},
+                                "holding_days": "-",
+                                "position_ratio": "-",
+                                "risk_level": "medium",
+                            },
+                            "reasons": ["数据正在加载中"],
+                        }
+                    return None
+
+        parallel_results = await asyncio.gather(
+            *[_analyze_one(c) for c in uncached_codes]
+        )
+        for r in parallel_results:
+            if r is not None:
+                results.append(r)
 
     return {
         "count": len(results),
@@ -369,16 +426,11 @@ async def get_batch_stock_analyses(
 async def prefetch_stocks(codes: list[str]):
     """
     批量预加载股票数据（后台缓存）
-
-    - codes: 股票代码列表
-
-    预加载后，后续访问单股票 API 会直接返回缓存数据
     """
     results = {"success": [], "failed": []}
 
-    for code in codes[:20]:  # 限制最多 20 只
+    for code in codes[:20]:
         try:
-            # 调用单股票分析（会自动缓存）
             await get_stock_analysis(code, ai_analysis=False, refresh=False)
             results["success"].append(code)
         except Exception as e:
@@ -396,20 +448,17 @@ async def prefetch_stocks(codes: list[str]):
 async def get_stock_kline(code: str, days: int = 60):
     """
     获取股票 K 线数据
-
-    - code: 股票代码
-    - days: 天数（默认 60）
     """
-    df = eastmoney_service.get_history(code, days=days)
+    df = await eastmoney_service.get_history(code, days=days)
     if df is None or df.empty:
         raise HTTPException(
             status_code=404,
             detail=f"无法获取股票 {code} 的 K 线数据"
         )
 
-    # 转换为列表
+    # 使用 to_dict('records') 替代 iterrows() 提高性能
     kline_data = []
-    for _, row in df.iterrows():
+    for row in df.to_dict('records'):
         kline_data.append({
             "date": str(row["date"]),
             "open": float(row["open"]),
@@ -430,21 +479,19 @@ async def get_stock_kline(code: str, days: int = 60):
 async def get_stock_ai_analysis(code: str):
     """
     获取股票 AI 智能分析（独立接口，更详细的分析）
-
-    - code: 股票代码
-
-    返回：公司分析、基本面分析、AI评分、投资建议
     """
-    # 获取历史数据
-    df = eastmoney_service.get_history(code, days=60)
+    # 并行获取历史数据和实时行情
+    df, realtime = await asyncio.gather(
+        eastmoney_service.get_history(code, days=60),
+        eastmoney_service.get_realtime(code),
+    )
+
     if df is None or df.empty:
         raise HTTPException(
             status_code=404,
             detail=f"无法获取股票 {code} 的数据"
         )
 
-    # 获取实时行情
-    realtime = eastmoney_service.get_realtime(code)
     if realtime is None:
         raise HTTPException(
             status_code=404,
@@ -457,7 +504,7 @@ async def get_stock_ai_analysis(code: str):
     score = indicator_service.calculate_score(indicators, suggestion)
 
     # 获取完整 AI 分析
-    ai_result = get_full_ai_analysis(
+    ai_result = await get_full_ai_analysis(
         name=realtime["name"],
         code=code,
         industry=realtime.get("industry", "未知"),
@@ -502,26 +549,18 @@ async def get_ai_rankings(
 ):
     """
     获取 AI 智能排名榜
-
-    返回根据 AI 综合评分排名的股票列表
-    - 数据缓存 30 分钟，避免重复计算
-    - 设置 refresh=true 可强制刷新
+    使用 asyncio.gather + Semaphore 并行分析 + 批量获取实时价格
     """
-    global _ai_rankings_cache
-
     # 检查缓存是否有效
-    if not refresh and _ai_rankings_cache["data"] is not None:
-        if _ai_rankings_cache["updated_at"] is not None:
-            cache_age = datetime.now() - _ai_rankings_cache["updated_at"]
-            if cache_age < _ai_rankings_cache["cache_duration"]:
-                # 返回缓存数据
-                cached_rankings = _ai_rankings_cache["data"][:limit]
-                return {
-                    "count": len(cached_rankings),
-                    "rankings": cached_rankings,
-                    "cached": True,
-                    "cache_time": _ai_rankings_cache["updated_at"].strftime("%H:%M:%S"),
-                }
+    if not refresh and _AI_RANKINGS_KEY in _ai_rankings_cache:
+        cached = _ai_rankings_cache[_AI_RANKINGS_KEY]
+        cached_rankings = cached["data"][:limit]
+        return {
+            "count": len(cached_rankings),
+            "rankings": cached_rankings,
+            "cached": True,
+            "cache_time": cached["updated_at"].strftime("%H:%M:%S"),
+        }
 
     # 使用预定义的热门股票进行排名（30只覆盖更多行业）
     hot_stocks = [
@@ -544,62 +583,70 @@ async def get_ai_rankings(
     # 去重
     hot_stocks = list(dict.fromkeys(hot_stocks))
 
-    rankings = []
+    # 批量获取实时价格（单次 HTTP 请求）
+    batch_quotes = await eastmoney_service.get_batch_realtime(hot_stocks)
 
-    for code in hot_stocks:
-        try:
-            # 获取数据
-            df = eastmoney_service.get_history(code, days=60)
-            if df is None or df.empty:
-                continue
+    # 并行获取历史数据 + 计算指标（Semaphore 限制并发）
+    semaphore = asyncio.Semaphore(5)
 
-            realtime = eastmoney_service.get_realtime(code)
-            if realtime is None:
-                continue
+    async def _analyze_stock(code: str) -> Optional[dict]:
+        async with semaphore:
+            try:
+                df = await eastmoney_service.get_history(code, days=60)
+                if df is None or df.empty:
+                    return None
 
-            # 计算指标
-            indicators = indicator_service.calculate_indicators(df)
-            suggestion = indicator_service.calculate_trading_suggestion(df, indicators)
-            score = indicator_service.calculate_score(indicators, suggestion)
+                realtime = batch_quotes.get(code)
+                if not realtime:
+                    return None
 
-            # 计算 AI 排名分数
-            vol = indicators.get("volume", {})
-            ma = indicators.get("ma", {})
-            macd = indicators.get("macd", {})
+                indicators = indicator_service.calculate_indicators(df)
+                suggestion = indicator_service.calculate_trading_suggestion(df, indicators)
+                score = indicator_service.calculate_score(indicators, suggestion)
 
-            ai_ranking_score = calculate_ai_ranking_score(
-                technical_score=score,
-                ai_score=score,  # 简化版本使用技术评分
-                change=realtime["change"],
-                volume_status=vol.get("status", "正常"),
-                ma_trend=ma.get("trend", "震荡"),
-            )
+                vol = indicators.get("volume", {})
+                ma = indicators.get("ma", {})
+                macd = indicators.get("macd", {})
 
-            rankings.append({
-                "code": code,
-                "name": realtime["name"],
-                "industry": realtime.get("industry", ""),
-                "price": realtime["price"],
-                "change": realtime["change"],
-                "technical_score": score,
-                "ai_ranking_score": ai_ranking_score,
-                "macd_signal": macd.get("signal", "未知"),
-                "ma_trend": ma.get("trend", "震荡"),
-                "action": suggestion.get("action", "观望"),
-                # 交易建议详情
-                "buy_price_low": suggestion.get("buy_price_low", 0),
-                "buy_price_high": suggestion.get("buy_price_high", 0),
-                "stop_loss": suggestion.get("stop_loss", 0),
-                "take_profit_1": suggestion.get("take_profit_1", 0),
-                "take_profit_2": suggestion.get("take_profit_2", 0),
-                "risk_level": suggestion.get("risk_level", "medium"),
-                "holding_days": suggestion.get("holding_days", "5-15个交易日"),
-                "position_ratio": suggestion.get("position", "10-15%"),
-            })
+                ai_ranking_score = calculate_ai_ranking_score(
+                    technical_score=score,
+                    ai_score=score,
+                    change=realtime["change"],
+                    volume_status=vol.get("status", "正常"),
+                    ma_trend=ma.get("trend", "震荡"),
+                )
 
-        except Exception as e:
-            print(f"Error processing {code}: {e}")
-            continue
+                return {
+                    "code": code,
+                    "name": realtime["name"],
+                    "industry": realtime.get("industry", ""),
+                    "price": realtime["price"],
+                    "change": realtime["change"],
+                    "technical_score": score,
+                    "ai_ranking_score": ai_ranking_score,
+                    "macd_signal": macd.get("signal", "未知"),
+                    "ma_trend": ma.get("trend", "震荡"),
+                    "action": suggestion.get("action", "观望"),
+                    "buy_price_low": suggestion.get("buy_price_low", 0),
+                    "buy_price_high": suggestion.get("buy_price_high", 0),
+                    "stop_loss": suggestion.get("stop_loss", 0),
+                    "take_profit_1": suggestion.get("take_profit_1", 0),
+                    "take_profit_2": suggestion.get("take_profit_2", 0),
+                    "risk_level": suggestion.get("risk_level", "medium"),
+                    "holding_days": suggestion.get("holding_days", "5-15个交易日"),
+                    "position_ratio": suggestion.get("position", "10-15%"),
+                }
+
+            except Exception as e:
+                print(f"Error processing {code}: {e}")
+                return None
+
+    # 并行分析所有股票
+    analysis_results = await asyncio.gather(
+        *[_analyze_stock(code) for code in hot_stocks]
+    )
+
+    rankings = [r for r in analysis_results if r is not None]
 
     # 按 AI 排名分数降序排序
     rankings.sort(key=lambda x: x["ai_ranking_score"], reverse=True)
@@ -609,8 +656,10 @@ async def get_ai_rankings(
         item["rank"] = i + 1
 
     # 更新缓存
-    _ai_rankings_cache["data"] = rankings
-    _ai_rankings_cache["updated_at"] = datetime.now()
+    _ai_rankings_cache[_AI_RANKINGS_KEY] = {
+        "data": rankings,
+        "updated_at": datetime.now(),
+    }
 
     # 获取 AI 模型状态
     ai_status = get_ai_model_status()
@@ -619,6 +668,6 @@ async def get_ai_rankings(
         "count": len(rankings[:limit]),
         "rankings": rankings[:limit],
         "cached": False,
-        "cache_time": _ai_rankings_cache["updated_at"].strftime("%H:%M:%S"),
+        "cache_time": datetime.now().strftime("%H:%M:%S"),
         "ai_model_status": ai_status,
     }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useWatchlist } from '@/lib/watchlist-context';
 import { StockRecommendation } from '@/lib/types';
 import { getBatchStockAnalyses, prefetchStocks, StockAnalysis } from '@/lib/api';
@@ -60,14 +60,10 @@ export default function HomeContent({ recommendations }: HomeContentProps) {
     });
   }, [recommendations]);
 
-  // 当切换到自选股 tab 或自选列表变化时，加载自选股数据
-  useEffect(() => {
-    if (activeTab === 'watchlist' && watchlist.length > 0) {
-      loadWatchlistStocks();
-    }
-  }, [activeTab, watchlist]);
+  // 稳定的自选股 key，避免 watchlist 对象引用变化导致无限重加载
+  const watchlistKey = useMemo(() => watchlist.map(w => w.code).join(','), [watchlist]);
 
-  const loadWatchlistStocks = async () => {
+  const loadWatchlistStocks = useCallback(async () => {
     setLoadingWatchlist(true);
     setWatchlistError(null);
 
@@ -112,7 +108,14 @@ export default function HomeContent({ recommendations }: HomeContentProps) {
     } finally {
       setLoadingWatchlist(false);
     }
-  };
+  }, [watchlist]);
+
+  // 当切换到自选股 tab 或自选列表变化时，加载自选股数据
+  useEffect(() => {
+    if (activeTab === 'watchlist' && watchlistKey) {
+      loadWatchlistStocks();
+    }
+  }, [activeTab, watchlistKey, loadWatchlistStocks]);
 
   return (
     <section>

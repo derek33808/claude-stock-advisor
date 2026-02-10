@@ -26,12 +26,12 @@ export default function StockChatPanel({ code, stockName }: StockChatPanelProps)
   const [showAllHistory, setShowAllHistory] = useState(false);
   const answerRef = useRef<HTMLDivElement>(null);
 
-  // 加载历史记录（展开时）
+  // 加载历史记录（展开时或股票切换时）
   useEffect(() => {
     if (expanded) {
       loadHistory();
     }
-  }, [expanded]);
+  }, [expanded, code]);
 
   const loadHistory = async () => {
     try {

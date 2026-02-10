@@ -1,20 +1,20 @@
 """
 AI 股票问答服务
 基于缓存的分析数据 + GLM-4 提供单轮问答
+全部使用 httpx 异步调用
 """
 
 import json
-import urllib.request
-import urllib.error
 from datetime import datetime, timedelta
 from typing import Optional
 from app.db.supabase import get_supabase
 from app.services.ai_analysis_service import _get_glm_api_key, _ai_model_status
+from app.http_client import get_client
 
 # GLM 配置
 GLM_API_URL = "https://open.bigmodel.cn/api/paas/v4/chat/completions"
 GLM_MODEL = "glm-4-flash"
-GLM_TIMEOUT = 30
+GLM_TIMEOUT = 15
 
 # 每日问答额度
 DAILY_QUOTA = 10
@@ -52,7 +52,6 @@ def build_chat_prompt(
         action = suggestion.get('action', '未知')
         base_context += f"- 操作建议：{action}\n"
 
-    # 根据模板添加额外上下文
     if template == "financial":
         fundamental = stock_context.get('ai_fundamental', {})
         if fundamental:
@@ -137,15 +136,11 @@ def get_remaining_quota(user_id: str) -> int:
         return max(0, DAILY_QUOTA - used)
     except Exception as e:
         print(f"[Chat] Error checking quota: {e}")
-        return DAILY_QUOTA  # 出错时允许提问
+        return DAILY_QUOTA
 
 
 def find_similar_answer(code: str, question: str, template: Optional[str] = None) -> Optional[dict]:
-    """
-    查找2小时内相同股票的相似问题
-    - 相同模板直接命中
-    - 自由提问用关键词匹配
-    """
+    """查找2小时内相同股票的相似问题"""
     try:
         sb = get_supabase()
         cutoff = (datetime.now() - timedelta(hours=2)).isoformat()
@@ -163,11 +158,9 @@ def find_similar_answer(code: str, question: str, template: Optional[str] = None
         if not result.data:
             return None
 
-        # 模板匹配直接命中
         if template:
             return result.data[0]
 
-        # 自由提问：关键词重叠率
         q_keywords = set(question)
         for item in result.data:
             existing_keywords = set(item['question'])
@@ -182,8 +175,8 @@ def find_similar_answer(code: str, question: str, template: Optional[str] = None
         return None
 
 
-def call_glm_chat(system_prompt: str, user_prompt: str) -> Optional[dict]:
-    """调用 GLM-4 进行问答"""
+async def call_glm_chat(system_prompt: str, user_prompt: str) -> Optional[dict]:
+    """调用 GLM-4 进行问答（异步）"""
     try:
         data = {
             "model": GLM_MODEL,
@@ -195,18 +188,29 @@ def call_glm_chat(system_prompt: str, user_prompt: str) -> Optional[dict]:
             "max_tokens": 400,
         }
 
-        req = urllib.request.Request(
+        client = get_client()
+        resp = await client.post(
             GLM_API_URL,
-            data=json.dumps(data).encode('utf-8'),
+            json=data,
             headers={
                 "Content-Type": "application/json",
                 "Authorization": f"Bearer {_get_glm_api_key()}",
             },
-            method="POST"
+            timeout=GLM_TIMEOUT,
         )
 
-        with urllib.request.urlopen(req, timeout=GLM_TIMEOUT) as response:
-            result = json.loads(response.read().decode('utf-8'))
+        if resp.status_code != 200:
+            error_body = resp.text
+            print(f"[Chat] GLM API HTTP error {resp.status_code}: {error_body}")
+
+            if resp.status_code == 429:
+                if "quota" in error_body.lower():
+                    _ai_model_status.set_error("quota_exhausted", "API 配额已用尽")
+                else:
+                    _ai_model_status.set_error("rate_limited", "请求过于频繁")
+            return None
+
+        result = resp.json()
 
         if result.get("choices") and len(result["choices"]) > 0:
             content = result["choices"][0].get("message", {}).get("content", "")
@@ -215,21 +219,6 @@ def call_glm_chat(system_prompt: str, user_prompt: str) -> Optional[dict]:
             _ai_model_status.clear_error()
             return {"answer": content.strip(), "tokens_used": tokens_used}
 
-        return None
-
-    except urllib.error.HTTPError as e:
-        error_body = ""
-        try:
-            error_body = e.read().decode('utf-8')
-        except Exception:
-            pass
-        print(f"[Chat] GLM API HTTP error {e.code}: {error_body}")
-
-        if e.code == 429:
-            if "quota" in error_body.lower():
-                _ai_model_status.set_error("quota_exhausted", "API 配额已用尽")
-            else:
-                _ai_model_status.set_error("rate_limited", "请求过于频繁")
         return None
 
     except Exception as e:
@@ -290,12 +279,7 @@ async def ask_question(
     template: Optional[str] = None,
 ) -> dict:
     """
-    处理用户问答请求
-    1. 检查额度
-    2. 查找相似问题缓存
-    3. 获取股票上下文
-    4. 调用 GLM-4
-    5. 保存记录
+    处理用户问答请求（异步）
     """
     # 1. 检查额度
     remaining = get_remaining_quota(user_id)
@@ -323,9 +307,8 @@ async def ask_question(
     from app.services.cache_service import get_cached_analysis
     stock_context = get_cached_analysis(code)
     if not stock_context:
-        # 缓存中没有，用基础信息
         from app.services.eastmoney_service import get_realtime
-        realtime = get_realtime(code)
+        realtime = await get_realtime(code)
         stock_context = {
             "code": code,
             "name": realtime.get("name", code) if realtime else code,
@@ -336,7 +319,7 @@ async def ask_question(
 
     # 4. 构建 prompt 并调用 GLM
     user_prompt = build_chat_prompt(stock_context, question, template)
-    result = call_glm_chat(CHAT_SYSTEM_PROMPT, user_prompt)
+    result = await call_glm_chat(CHAT_SYSTEM_PROMPT, user_prompt)
 
     if not result:
         return {

@@ -32,7 +32,7 @@ export default function ProgressBar({
       const targetProgress = Math.min(95, (1 - Math.exp(-elapsed / (estimatedSeconds * 0.5))) * 100);
 
       setProgress(targetProgress);
-    }, 100);
+    }, 500);
 
     return () => clearInterval(interval);
   }, [startTime, estimatedSeconds]);

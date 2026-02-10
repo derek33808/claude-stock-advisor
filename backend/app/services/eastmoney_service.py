@@ -3,18 +3,20 @@
 全球可访问，用于获取 A 股实时和历史数据
 
 增加了自动 fallback 到新浪财经的逻辑，当东方财富 API 不可用时自动切换
+全部使用 httpx 异步调用，避免阻塞 FastAPI 事件循环
 """
 
 import json
-import time
-import urllib.request
+import asyncio
 import pandas as pd
 from datetime import datetime, timedelta
 from typing import Optional, List, Dict
 
+from app.http_client import get_client
+
 # 配置
-REQUEST_TIMEOUT = 15
-MAX_RETRIES = 3
+REQUEST_TIMEOUT = 8
+MAX_RETRIES = 2
 
 # 数据源状态追踪
 _eastmoney_available = True
@@ -101,9 +103,9 @@ def _get_market_code(code: str) -> str:
     return '0'
 
 
-def get_stock_realtime(code: str) -> Optional[dict]:
+async def get_stock_realtime(code: str) -> Optional[dict]:
     """
-    获取单只股票实时行情
+    获取单只股票实时行情（异步）
 
     Args:
         code: 股票代码 (如 600519, 000001)
@@ -114,16 +116,12 @@ def get_stock_realtime(code: str) -> Optional[dict]:
     market = _get_market_code(code)
     url = f'https://push2.eastmoney.com/api/qt/stock/get?secid={market}.{code}&fields=f58,f43,f44,f45,f46,f47,f48,f60,f170,f116'
 
+    client = get_client()
     for retry in range(MAX_RETRIES):
         try:
-            req = urllib.request.Request(url)
-            req.add_header('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36')
-            req.add_header('Referer', 'https://quote.eastmoney.com')
+            resp = await client.get(url, timeout=REQUEST_TIMEOUT)
+            data = resp.json()
 
-            with urllib.request.urlopen(req, timeout=REQUEST_TIMEOUT) as response:
-                content = response.read().decode('utf-8')
-
-            data = json.loads(content)
             if data.get('rc') != 0 or not data.get('data'):
                 return None
 
@@ -164,7 +162,7 @@ def get_stock_realtime(code: str) -> Optional[dict]:
 
         except Exception as e:
             if retry < MAX_RETRIES - 1:
-                time.sleep(0.5)
+                await asyncio.sleep(0.3)
                 continue
             print(f"Error fetching realtime for {code}: {e}")
             return None
@@ -172,9 +170,9 @@ def get_stock_realtime(code: str) -> Optional[dict]:
     return None
 
 
-def get_stock_history(code: str, days: int = 60) -> Optional[pd.DataFrame]:
+async def get_stock_history(code: str, days: int = 60) -> Optional[pd.DataFrame]:
     """
-    获取股票历史 K 线数据
+    获取股票历史 K 线数据（异步）
 
     Args:
         code: 股票代码
@@ -189,16 +187,12 @@ def get_stock_history(code: str, days: int = 60) -> Optional[pd.DataFrame]:
            f'secid={market}.{code}&fields1=f1,f2,f3,f4,f5,f6&fields2=f51,f52,f53,f54,f55,f56,f57&'
            f'klt=101&fqt=1&end=20500101&lmt={days + 30}')
 
+    client = get_client()
     for retry in range(MAX_RETRIES):
         try:
-            req = urllib.request.Request(url)
-            req.add_header('User-Agent', 'Mozilla/5.0')
-            req.add_header('Referer', 'https://quote.eastmoney.com')
+            resp = await client.get(url, timeout=REQUEST_TIMEOUT)
+            data = resp.json()
 
-            with urllib.request.urlopen(req, timeout=REQUEST_TIMEOUT) as response:
-                content = response.read().decode('utf-8')
-
-            data = json.loads(content)
             if data.get('rc') != 0 or not data.get('data') or not data['data'].get('klines'):
                 return None
 
@@ -230,7 +224,7 @@ def get_stock_history(code: str, days: int = 60) -> Optional[pd.DataFrame]:
 
         except Exception as e:
             if retry < MAX_RETRIES - 1:
-                time.sleep(0.5)
+                await asyncio.sleep(0.3)
                 continue
             print(f"Error fetching history for {code}: {e}")
             return None
@@ -238,9 +232,9 @@ def get_stock_history(code: str, days: int = 60) -> Optional[pd.DataFrame]:
     return None
 
 
-def get_market_indices() -> dict:
+async def get_market_indices() -> dict:
     """
-    获取大盘指数
+    获取大盘指数（异步）
 
     Returns:
         dict with sh_index, sz_index, etc.
@@ -248,16 +242,11 @@ def get_market_indices() -> dict:
     # 上证指数: 1.000001, 深证成指: 0.399001
     url = 'https://push2.eastmoney.com/api/qt/ulist.np/get?fltt=2&secids=1.000001,0.399001&fields=f3,f2,f14'
 
+    client = get_client()
     for retry in range(MAX_RETRIES):
         try:
-            req = urllib.request.Request(url)
-            req.add_header('User-Agent', 'Mozilla/5.0')
-            req.add_header('Referer', 'https://quote.eastmoney.com')
-
-            with urllib.request.urlopen(req, timeout=REQUEST_TIMEOUT) as response:
-                content = response.read().decode('utf-8')
-
-            data = json.loads(content)
+            resp = await client.get(url, timeout=REQUEST_TIMEOUT)
+            data = resp.json()
 
             result = {
                 'sh_index': 3000,
@@ -293,7 +282,7 @@ def get_market_indices() -> dict:
 
         except Exception as e:
             if retry < MAX_RETRIES - 1:
-                time.sleep(0.5)
+                await asyncio.sleep(0.3)
                 continue
             print(f"Error fetching market indices: {e}")
 
@@ -306,9 +295,9 @@ def get_market_indices() -> dict:
     }
 
 
-def search_stocks(keyword: str, limit: int = 20) -> list[dict]:
+async def search_stocks(keyword: str, limit: int = 20) -> list[dict]:
     """
-    搜索股票 (从预定义列表中搜索)
+    搜索股票 (从预定义列表中搜索，不逐个获取实时价格)
 
     Args:
         keyword: 关键词
@@ -318,34 +307,34 @@ def search_stocks(keyword: str, limit: int = 20) -> list[dict]:
         list of {code, name, price, change}
     """
     results = []
+    matched_codes = []
 
     for code, name, industry in STOCK_LIST:
         if keyword in code or keyword in name:
-            # 获取实时价格
-            realtime = get_stock_realtime(code)
-            if realtime:
-                results.append({
-                    "code": code,
-                    "name": name,
-                    "price": realtime["price"],
-                    "change": realtime["change"],
-                })
-            else:
-                results.append({
-                    "code": code,
-                    "name": name,
-                    "price": 0,
-                    "change": 0,
-                })
-
+            matched_codes.append(code)
+            results.append({
+                "code": code,
+                "name": name,
+                "price": 0,
+                "change": 0,
+            })
         if len(results) >= limit:
             break
+
+    # 批量获取实时价格（单次 HTTP 请求）
+    if matched_codes:
+        batch_data = await get_batch_realtime(matched_codes)
+        for item in results:
+            realtime = batch_data.get(item["code"])
+            if realtime:
+                item["price"] = realtime["price"]
+                item["change"] = realtime["change"]
 
     return results
 
 
 # 兼容接口 - 带自动 fallback 到 Yahoo Finance（全球可访问）
-def get_history(code: str, days: int = 60) -> Optional[pd.DataFrame]:
+async def get_history(code: str, days: int = 60) -> Optional[pd.DataFrame]:
     """
     智能获取历史数据，东方财富失败时自动切换到 Yahoo Finance
     """
@@ -358,7 +347,7 @@ def get_history(code: str, days: int = 60) -> Optional[pd.DataFrame]:
 
     # 首先尝试东方财富
     if _eastmoney_available:
-        result = get_stock_history(code, days)
+        result = await get_stock_history(code, days)
         if result is not None and not result.empty:
             return result
         # 东方财富失败，标记为不可用
@@ -366,10 +355,10 @@ def get_history(code: str, days: int = 60) -> Optional[pd.DataFrame]:
         _eastmoney_available = False
         _last_eastmoney_check = datetime.now()
 
-    # 尝试 Yahoo Finance（全球可访问）
+    # 尝试 Yahoo Finance（全球可访问） - 仍为同步，用 to_thread 包装
     try:
         from app.services import yahoo_service
-        result = yahoo_service.get_stock_history(code, days)
+        result = await asyncio.to_thread(yahoo_service.get_stock_history, code, days)
         if result is not None and not result.empty:
             print(f"[Fallback] 使用 Yahoo Finance 获取历史数据成功 {code}")
             return result
@@ -379,12 +368,12 @@ def get_history(code: str, days: int = 60) -> Optional[pd.DataFrame]:
     return None
 
 
-def get_realtime(code: str) -> Optional[dict]:
+async def get_realtime(code: str) -> Optional[dict]:
     """
     获取实时行情，每次请求都先尝试东方财富，失败再用 Yahoo
     """
     # 每次请求都先尝试东方财富（不使用全局状态，避免一次失败影响后续请求）
-    result = get_stock_realtime(code)
+    result = await get_stock_realtime(code)
     if result is not None:
         return result
 
@@ -392,7 +381,7 @@ def get_realtime(code: str) -> Optional[dict]:
     print(f"[Fallback] 东方财富获取实时行情失败 {code}，尝试 Yahoo Finance")
     try:
         from app.services import yahoo_service
-        result = yahoo_service.get_stock_realtime(code)
+        result = await asyncio.to_thread(yahoo_service.get_stock_realtime, code)
         if result is not None:
             print(f"[Fallback] 使用 Yahoo Finance 获取实时行情成功 {code}")
             return result
@@ -402,9 +391,9 @@ def get_realtime(code: str) -> Optional[dict]:
     return None
 
 
-def get_batch_realtime(codes: list[str]) -> dict[str, dict]:
+async def get_batch_realtime(codes: list[str]) -> dict[str, dict]:
     """
-    批量获取多只股票实时行情（单次HTTP请求）
+    批量获取多只股票实时行情（单次HTTP请求，异步）
     利用东方财富 ulist.np API 支持多 secid 的特性
 
     Args:
@@ -422,16 +411,12 @@ def get_batch_realtime(codes: list[str]) -> dict[str, dict]:
            f"fltt=2&secids={secids}"
            f"&fields=f2,f3,f12,f14,f15,f16,f17,f18,f5,f6,f60,f116")
 
+    client = get_client()
     for retry in range(MAX_RETRIES):
         try:
-            req = urllib.request.Request(url)
-            req.add_header('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36')
-            req.add_header('Referer', 'https://quote.eastmoney.com')
+            resp = await client.get(url, timeout=REQUEST_TIMEOUT)
+            data = resp.json()
 
-            with urllib.request.urlopen(req, timeout=REQUEST_TIMEOUT) as response:
-                content = response.read().decode('utf-8')
-
-            data = json.loads(content)
             if data.get('rc') != 0 or not data.get('data') or not data['data'].get('diff'):
                 return {}
 
@@ -478,7 +463,7 @@ def get_batch_realtime(codes: list[str]) -> dict[str, dict]:
 
         except Exception as e:
             if retry < MAX_RETRIES - 1:
-                time.sleep(0.5)
+                await asyncio.sleep(0.3)
                 continue
             print(f"[EastMoney] Error fetching batch realtime: {e}")
             return {}
@@ -486,7 +471,7 @@ def get_batch_realtime(codes: list[str]) -> dict[str, dict]:
     return {}
 
 
-def get_market_indices_with_fallback() -> dict:
+async def get_market_indices_with_fallback() -> dict:
     """
     获取大盘指数，东方财富失败时自动切换到 Yahoo Finance
     """
@@ -499,7 +484,7 @@ def get_market_indices_with_fallback() -> dict:
 
     # 首先尝试东方财富
     if _eastmoney_available:
-        result = get_market_indices()
+        result = await get_market_indices()
         if result and result.get('sh_index', 0) > 0:
             return result
         print("[Fallback] 东方财富获取大盘指数失败，切换到 Yahoo Finance")
@@ -509,7 +494,7 @@ def get_market_indices_with_fallback() -> dict:
     # 尝试 Yahoo Finance（全球可访问）
     try:
         from app.services import yahoo_service
-        result = yahoo_service.get_market_indices()
+        result = await asyncio.to_thread(yahoo_service.get_market_indices)
         if result and result.get('sh_index', 0) > 0:
             print("[Fallback] 使用 Yahoo Finance 获取大盘指数成功")
             return result

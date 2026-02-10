@@ -1,25 +1,23 @@
 """
 智谱 GLM 大模型服务
 用于生成智能股票交易摘要
+全部使用 httpx 异步调用
 """
 
 import json
-import urllib.request
-import urllib.error
-import time
 from typing import Optional
 
-# 导入 AI 模型状态管理和 API Key 获取函数
+from app.http_client import get_client
 from app.services.ai_analysis_service import _ai_model_status, _get_glm_api_key
 
 
 # GLM API 配置
 GLM_API_URL = "https://open.bigmodel.cn/api/paas/v4/chat/completions"
 GLM_MODEL = "glm-4-flash"  # 使用 flash 版本，速度快成本低
-GLM_TIMEOUT = 30
+GLM_TIMEOUT = 15
 
 
-def generate_ai_summary(
+async def generate_ai_summary(
     name: str,
     code: str,
     price: float,
@@ -30,20 +28,7 @@ def generate_ai_summary(
     reasons: list,
 ) -> Optional[str]:
     """
-    使用 GLM 大模型生成股票交易指导摘要
-
-    Args:
-        name: 股票名称
-        code: 股票代码
-        price: 当前价格
-        change: 涨跌幅
-        score: 综合评分
-        suggestion: 交易建议
-        indicators: 技术指标
-        reasons: 推荐理由
-
-    Returns:
-        AI 生成的摘要文字，失败返回 None
+    使用 GLM 大模型生成股票交易指导摘要（异步）
     """
 
     # 构建 prompt
@@ -84,7 +69,6 @@ def generate_ai_summary(
 要求：语言专业但易懂，使用 emoji 增强可读性，末尾加上免责声明。"""
 
     try:
-        # 构建请求
         data = {
             "model": GLM_MODEL,
             "messages": [
@@ -101,21 +85,34 @@ def generate_ai_summary(
             "max_tokens": 500,
         }
 
-        # 发送请求
-        req = urllib.request.Request(
+        client = get_client()
+        resp = await client.post(
             GLM_API_URL,
-            data=json.dumps(data).encode('utf-8'),
+            json=data,
             headers={
                 "Content-Type": "application/json",
                 "Authorization": f"Bearer {_get_glm_api_key()}",
             },
-            method="POST"
+            timeout=GLM_TIMEOUT,
         )
 
-        with urllib.request.urlopen(req, timeout=GLM_TIMEOUT) as response:
-            result = json.loads(response.read().decode('utf-8'))
+        if resp.status_code != 200:
+            error_body = resp.text
+            print(f"GLM API HTTP 错误 {resp.status_code}: {error_body}")
 
-        # 提取生成的内容
+            if resp.status_code == 401:
+                _ai_model_status.set_error("auth_failed", "API 认证失败，请检查 API Key")
+            elif resp.status_code == 429:
+                if "quota" in error_body.lower() or "余额" in error_body:
+                    _ai_model_status.set_error("quota_exhausted", "API 配额已用尽，请充值或等待重置")
+                else:
+                    _ai_model_status.set_error("rate_limited", "请求过于频繁，请稍后重试")
+            elif resp.status_code >= 500:
+                _ai_model_status.set_error("unavailable", f"AI 模型服务暂时不可用 (HTTP {resp.status_code})")
+            return None
+
+        result = resp.json()
+
         if result.get("choices") and len(result["choices"]) > 0:
             content = result["choices"][0].get("message", {}).get("content", "")
             if content:
@@ -124,37 +121,12 @@ def generate_ai_summary(
 
         return None
 
-    except urllib.error.HTTPError as e:
-        error_body = ""
-        try:
-            error_body = e.read().decode('utf-8')
-        except Exception:
-            pass
-
-        print(f"GLM API HTTP 错误 {e.code}: {error_body}")
-
-        if e.code == 401:
-            _ai_model_status.set_error("auth_failed", "API 认证失败，请检查 API Key")
-        elif e.code == 429:
-            if "quota" in error_body.lower() or "余额" in error_body:
-                _ai_model_status.set_error("quota_exhausted", "API 配额已用尽，请充值或等待重置")
-            else:
-                _ai_model_status.set_error("rate_limited", "请求过于频繁，请稍后重试")
-        elif e.code >= 500:
-            _ai_model_status.set_error("unavailable", f"AI 模型服务暂时不可用 (HTTP {e.code})")
-        return None
-
-    except urllib.error.URLError as e:
-        print(f"GLM API 网络错误: {e}")
-        _ai_model_status.set_error("unavailable", "无法连接到 AI 模型服务")
-        return None
-
     except Exception as e:
         print(f"GLM API 调用失败: {e}")
         return None
 
 
-def generate_summary_with_fallback(
+async def generate_summary_with_fallback(
     name: str,
     code: str,
     price: float,
@@ -168,7 +140,7 @@ def generate_summary_with_fallback(
     生成摘要，AI 失败时使用模板兜底
     """
     # 先尝试 AI 生成
-    ai_summary = generate_ai_summary(
+    ai_summary = await generate_ai_summary(
         name, code, price, change, score,
         suggestion, indicators, reasons
     )

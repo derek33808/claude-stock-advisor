@@ -1,20 +1,25 @@
 """
 AI 智能分析服务
 使用 GLM 大模型进行公司分析、基本面分析和智能评分
+全部使用 httpx 异步调用 + asyncio.gather 并行化
 """
 
 import json
-import urllib.request
-import urllib.error
+import asyncio
 from typing import Optional, Dict, List, Tuple
 from datetime import datetime
+from cachetools import TTLCache
 from app.config import get_settings
+from app.http_client import get_client
 
 
 # GLM API 配置
 GLM_API_URL = "https://open.bigmodel.cn/api/paas/v4/chat/completions"
 GLM_MODEL = "glm-4-flash"
-GLM_TIMEOUT = 45
+GLM_TIMEOUT = 15
+
+# AI 分析结果缓存：同一天同一股票复用（最多100条，TTL 4小时）
+_ai_analysis_cache: TTLCache = TTLCache(maxsize=100, ttl=14400)
 
 def _get_glm_api_key() -> str:
     """从环境变量获取 GLM API Key"""
@@ -61,9 +66,9 @@ def get_ai_model_status() -> Dict:
     return _ai_model_status.get_status()
 
 
-def call_glm_api(system_prompt: str, user_prompt: str, max_tokens: int = 800) -> Tuple[Optional[str], Optional[str]]:
+async def call_glm_api(system_prompt: str, user_prompt: str, max_tokens: int = 800) -> Tuple[Optional[str], Optional[str]]:
     """
-    调用 GLM API
+    调用 GLM API（异步）
 
     Args:
         system_prompt: 系统提示词
@@ -72,8 +77,6 @@ def call_glm_api(system_prompt: str, user_prompt: str, max_tokens: int = 800) ->
 
     Returns:
         Tuple of (content, error_type)
-        - content: 生成的文本，失败返回 None
-        - error_type: 错误类型 ('unavailable', 'quota_exhausted', 'auth_failed', None)
     """
     global _ai_model_status
 
@@ -88,63 +91,56 @@ def call_glm_api(system_prompt: str, user_prompt: str, max_tokens: int = 800) ->
             "max_tokens": max_tokens,
         }
 
-        req = urllib.request.Request(
+        client = get_client()
+        resp = await client.post(
             GLM_API_URL,
-            data=json.dumps(data).encode('utf-8'),
+            json=data,
             headers={
                 "Content-Type": "application/json",
                 "Authorization": f"Bearer {_get_glm_api_key()}",
             },
-            method="POST"
+            timeout=GLM_TIMEOUT,
         )
 
-        with urllib.request.urlopen(req, timeout=GLM_TIMEOUT) as response:
-            result = json.loads(response.read().decode('utf-8'))
+        if resp.status_code != 200:
+            error_body = resp.text
+            error_msg = error_body
+            try:
+                error_json = json.loads(error_body)
+                error_msg = error_json.get("error", {}).get("message", error_body)
+            except Exception:
+                pass
+
+            print(f"GLM API HTTP 错误 {resp.status_code}: {error_msg}")
+
+            if resp.status_code == 401:
+                _ai_model_status.set_error("auth_failed", "API 认证失败，请检查 API Key")
+                return None, "auth_failed"
+            elif resp.status_code == 429:
+                if "quota" in error_body.lower() or "余额" in error_body:
+                    _ai_model_status.set_error("quota_exhausted", "API 配额已用尽，请充值或等待重置")
+                    return None, "quota_exhausted"
+                else:
+                    _ai_model_status.set_error("rate_limited", "请求过于频繁，请稍后重试")
+                    return None, "rate_limited"
+            elif resp.status_code >= 500:
+                _ai_model_status.set_error("unavailable", f"AI 模型服务暂时不可用 (HTTP {resp.status_code})")
+                return None, "unavailable"
+            else:
+                _ai_model_status.set_error("api_error", f"API 错误: {error_msg}")
+                return None, "api_error"
+
+        result = resp.json()
 
         if result.get("choices") and len(result["choices"]) > 0:
             content = result["choices"][0].get("message", {}).get("content", "")
             if content:
-                # 成功调用，清除错误状态
                 _ai_model_status.clear_error()
                 return content.strip(), None
 
         return None, None
 
-    except urllib.error.HTTPError as e:
-        error_body = ""
-        try:
-            error_body = e.read().decode('utf-8')
-            error_json = json.loads(error_body)
-            error_msg = error_json.get("error", {}).get("message", str(e))
-        except Exception:
-            error_msg = str(e)
-
-        print(f"GLM API HTTP 错误 {e.code}: {error_msg}")
-
-        if e.code == 401:
-            _ai_model_status.set_error("auth_failed", "API 认证失败，请检查 API Key")
-            return None, "auth_failed"
-        elif e.code == 429:
-            # 解析具体的配额错误
-            if "quota" in error_body.lower() or "余额" in error_body:
-                _ai_model_status.set_error("quota_exhausted", "API 配额已用尽，请充值或等待重置")
-                return None, "quota_exhausted"
-            else:
-                _ai_model_status.set_error("rate_limited", "请求过于频繁，请稍后重试")
-                return None, "rate_limited"
-        elif e.code >= 500:
-            _ai_model_status.set_error("unavailable", f"AI 模型服务暂时不可用 (HTTP {e.code})")
-            return None, "unavailable"
-        else:
-            _ai_model_status.set_error("api_error", f"API 错误: {error_msg}")
-            return None, "api_error"
-
-    except urllib.error.URLError as e:
-        print(f"GLM API 网络错误: {e}")
-        _ai_model_status.set_error("unavailable", "无法连接到 AI 模型服务，请检查网络")
-        return None, "unavailable"
-
-    except TimeoutError:
+    except asyncio.TimeoutError:
         print("GLM API 超时")
         _ai_model_status.set_error("timeout", "AI 模型响应超时，请稍后重试")
         return None, "timeout"
@@ -155,26 +151,14 @@ def call_glm_api(system_prompt: str, user_prompt: str, max_tokens: int = 800) ->
         return None, "unknown"
 
 
-def generate_company_analysis(
+async def generate_company_analysis(
     name: str,
     code: str,
     industry: str,
     price: float,
     market_cap: float,
 ) -> Dict:
-    """
-    生成公司分析报告
-
-    Args:
-        name: 股票名称
-        code: 股票代码
-        industry: 所属行业
-        price: 当前价格
-        market_cap: 市值（亿）
-
-    Returns:
-        公司分析结果
-    """
+    """生成公司分析报告（异步）"""
     system_prompt = """你是一位资深的股票分析师，专注于A股市场研究。
 请根据提供的股票信息，生成专业的公司分析报告。
 要求：
@@ -203,22 +187,18 @@ def generate_company_analysis(
 
 只返回 JSON，不要其他内容。"""
 
-    content, error_type = call_glm_api(system_prompt, user_prompt, 600)
+    content, error_type = await call_glm_api(system_prompt, user_prompt, 600)
 
     if content:
         try:
-            # 尝试解析 JSON
-            # 处理可能的 markdown 代码块
             if "```json" in content:
                 content = content.split("```json")[1].split("```")[0]
             elif "```" in content:
                 content = content.split("```")[1].split("```")[0]
-
             return json.loads(content.strip())
         except json.JSONDecodeError:
             pass
 
-    # 返回默认分析
     return generate_default_company_analysis(name, industry)
 
 
@@ -234,7 +214,7 @@ def generate_default_company_analysis(name: str, industry: str) -> Dict:
     }
 
 
-def generate_fundamental_analysis(
+async def generate_fundamental_analysis(
     name: str,
     code: str,
     price: float,
@@ -242,25 +222,11 @@ def generate_fundamental_analysis(
     market_cap: float,
     indicators: Dict,
 ) -> Dict:
-    """
-    生成基本面分析
-
-    Args:
-        name: 股票名称
-        code: 股票代码
-        price: 当前价格
-        change: 涨跌幅
-        market_cap: 市值
-        indicators: 技术指标
-
-    Returns:
-        基本面分析结果
-    """
+    """生成基本面分析（异步）"""
     system_prompt = """你是一位资深的股票分析师，擅长基本面分析。
 请根据提供的股票信息，生成专业的基本面分析报告。
 要求返回 JSON 格式。"""
 
-    # 提取关键技术数据
     ma = indicators.get("ma", {})
     rsi = indicators.get("rsi", {})
     volume = indicators.get("volume", {})
@@ -291,7 +257,7 @@ def generate_fundamental_analysis(
 
 只返回 JSON，不要其他内容。"""
 
-    content, error_type = call_glm_api(system_prompt, user_prompt, 500)
+    content, error_type = await call_glm_api(system_prompt, user_prompt, 500)
 
     if content:
         try:
@@ -299,18 +265,15 @@ def generate_fundamental_analysis(
                 content = content.split("```json")[1].split("```")[0]
             elif "```" in content:
                 content = content.split("```")[1].split("```")[0]
-
             return json.loads(content.strip())
         except json.JSONDecodeError:
             pass
 
-    # 返回默认分析
     return generate_default_fundamental_analysis(price, change, market_cap)
 
 
 def generate_default_fundamental_analysis(price: float, change: float, market_cap: float) -> Dict:
     """生成默认的基本面分析"""
-    # 根据市值判断估值
     if market_cap > 5000:
         valuation = "合理"
         val_reason = "大市值蓝筹股，估值相对稳定"
@@ -332,7 +295,7 @@ def generate_default_fundamental_analysis(price: float, change: float, market_ca
     }
 
 
-def generate_ai_score_and_recommendation(
+async def generate_ai_score_and_recommendation(
     name: str,
     code: str,
     price: float,
@@ -343,12 +306,7 @@ def generate_ai_score_and_recommendation(
     company_analysis: Dict,
     fundamental_analysis: Dict,
 ) -> Dict:
-    """
-    生成 AI 智能评分和投资建议
-
-    Returns:
-        AI 评分和建议
-    """
+    """生成 AI 智能评分和投资建议（异步）"""
     system_prompt = """你是一位专业的投资顾问，请综合技术面、基本面分析，给出最终的投资建议。
 要求返回 JSON 格式。"""
 
@@ -390,7 +348,7 @@ def generate_ai_score_and_recommendation(
 
 只返回 JSON，不要其他内容。"""
 
-    content, error_type = call_glm_api(system_prompt, user_prompt, 500)
+    content, error_type = await call_glm_api(system_prompt, user_prompt, 500)
 
     if content:
         try:
@@ -400,14 +358,12 @@ def generate_ai_score_and_recommendation(
                 content = content.split("```")[1].split("```")[0]
 
             parsed = json.loads(content.strip())
-            # 确保 ai_score 在合理范围
             if "ai_score" in parsed:
                 parsed["ai_score"] = max(0, min(100, int(parsed["ai_score"])))
             return parsed
         except (json.JSONDecodeError, ValueError):
             pass
 
-    # 返回默认建议
     return generate_default_ai_recommendation(score, suggestion)
 
 
@@ -444,7 +400,7 @@ def generate_default_ai_recommendation(score: int, suggestion: Dict) -> Dict:
     }
 
 
-def get_full_ai_analysis(
+async def get_full_ai_analysis(
     name: str,
     code: str,
     industry: str,
@@ -457,33 +413,43 @@ def get_full_ai_analysis(
 ) -> Dict:
     """
     获取完整的 AI 智能分析
+    - 步骤1和步骤2并行执行（公司分析 + 基本面分析）
+    - 步骤3串行执行（依赖步骤1和2的结果）
+    - 缓存同一天同一股票的结果
 
     Returns:
         包含公司分析、基本面分析、AI评分的完整分析结果
     """
-    # 1. 公司分析
-    company_analysis = generate_company_analysis(
-        name, code, industry, price, market_cap
+    # 检查缓存
+    today = datetime.now().strftime("%Y-%m-%d")
+    cache_key = f"{code}_{today}"
+    if cache_key in _ai_analysis_cache:
+        return _ai_analysis_cache[cache_key]
+
+    # 1 & 2. 公司分析 + 基本面分析 并行执行
+    company_analysis, fundamental_analysis = await asyncio.gather(
+        generate_company_analysis(name, code, industry, price, market_cap),
+        generate_fundamental_analysis(name, code, price, change, market_cap, indicators),
     )
 
-    # 2. 基本面分析
-    fundamental_analysis = generate_fundamental_analysis(
-        name, code, price, change, market_cap, indicators
-    )
-
-    # 3. AI 智能评分和建议
-    ai_recommendation = generate_ai_score_and_recommendation(
+    # 3. AI 智能评分和建议（依赖上面两个结果，串行）
+    ai_recommendation = await generate_ai_score_and_recommendation(
         name, code, price, change, score,
         indicators, suggestion,
         company_analysis, fundamental_analysis
     )
 
-    return {
+    result = {
         "company": company_analysis,
         "fundamental": fundamental_analysis,
         "ai_recommendation": ai_recommendation,
         "analysis_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
     }
+
+    # 写入缓存
+    _ai_analysis_cache[cache_key] = result
+
+    return result
 
 
 def calculate_ai_ranking_score(
@@ -495,33 +461,20 @@ def calculate_ai_ranking_score(
 ) -> int:
     """
     计算 AI 排名分数（用于股票排名）
-
-    Args:
-        technical_score: 技术评分
-        ai_score: AI 评分
-        change: 涨跌幅
-        volume_status: 成交量状态
-        ma_trend: 均线趋势
-
-    Returns:
-        排名分数（0-100）
     """
-    # 基础分数：技术评分和AI评分的加权平均
     base_score = technical_score * 0.4 + ai_score * 0.6
 
-    # 涨跌幅调整（适度上涨加分，暴涨扣分）
     if 0 < change <= 3:
         base_score += 5
     elif 3 < change <= 7:
         base_score += 3
     elif change > 7:
-        base_score -= 5  # 涨幅过大风险增加
+        base_score -= 5
     elif -3 < change < 0:
-        base_score += 2  # 小幅回调可能是买点
+        base_score += 2
     elif change <= -5:
         base_score -= 10
 
-    # 成交量调整
     if volume_status == "温和放量":
         base_score += 5
     elif volume_status == "放量":
@@ -529,7 +482,6 @@ def calculate_ai_ranking_score(
     elif volume_status == "缩量":
         base_score -= 3
 
-    # 均线趋势调整
     if ma_trend == "多头排列":
         base_score += 10
     elif ma_trend == "多头回调":

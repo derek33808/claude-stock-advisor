@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
-import { getStockAnalysis, StockAnalysis, wakeUpBackend, isBackendPossiblyAsleep } from '@/lib/api';
+import { getStockAnalysis, StockAnalysis, isBackendPossiblyAsleep } from '@/lib/api';
 import Disclaimer from './Disclaimer';
 import WatchlistButton from './WatchlistButton';
 import ProgressBar from './ProgressBar';
@@ -29,13 +29,12 @@ export default function StockDetailClient({ code }: StockDetailClientProps) {
       }
       setError(null);
 
-      // 检查后端是否可能休眠（仅首次加载时）
+      // apiRequest 内部已处理唤醒逻辑，此处只更新 UI 提示
       if (!forceRefresh && isBackendPossiblyAsleep()) {
-        setLoadingMessage('正在唤醒后端服务...');
-        await wakeUpBackend();
+        setLoadingMessage('正在连接后端服务...');
+      } else {
+        setLoadingMessage(forceRefresh ? '正在重新分析...' : '正在获取股票数据...');
       }
-
-      setLoadingMessage(forceRefresh ? '正在重新分析...' : '正在获取股票数据...');
       const data = await getStockAnalysis(code, forceRefresh);
       setStock(data);
     } catch (err) {
@@ -58,8 +57,8 @@ export default function StockDetailClient({ code }: StockDetailClientProps) {
     fetchStock(true);
   };
 
-  // 计算缓存年龄提示
-  const getCacheHint = () => {
+  // 计算缓存年龄提示（memoized）
+  const cacheHint = useMemo(() => {
     if (!stock) return null;
     const cacheInfo = (stock as unknown as Record<string, unknown>).cache_info as Record<string, unknown> | undefined;
     if (!cacheInfo?.cached) return null;
@@ -70,7 +69,7 @@ export default function StockDetailClient({ code }: StockDetailClientProps) {
     if (ageMin < 1) return '刚刚更新';
     if (ageMin < 60) return `${ageMin}分钟前更新`;
     return `${Math.round(ageMin / 60)}小时前更新`;
-  };
+  }, [stock]);
 
   // 加载中状态
   if (loading) {
@@ -191,9 +190,9 @@ export default function StockDetailClient({ code }: StockDetailClientProps) {
       </div>
 
       {/* 缓存状态提示 */}
-      {getCacheHint() && (
+      {cacheHint && (
         <div className="mb-3 flex items-center justify-between px-3 py-2 bg-gray-50 rounded-lg text-xs text-gray-500">
-          <span>分析数据 · {getCacheHint()}</span>
+          <span>分析数据 · {cacheHint}</span>
           <span className="text-green-500">行情实时</span>
         </div>
       )}

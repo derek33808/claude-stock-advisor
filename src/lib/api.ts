@@ -27,7 +27,7 @@ export async function wakeUpBackend(): Promise<boolean> {
 
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 90000); // 90秒超时等待冷启动
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30秒超时等待冷启动
 
     const response = await fetch(HEALTH_URL, {
       signal: controller.signal,
@@ -222,7 +222,7 @@ async function apiRequest<T>(
  * 获取今日推荐
  */
 export async function getRecommendations(): Promise<RecommendationsResponse> {
-  return apiRequest<RecommendationsResponse>('/recommendations');
+  return apiRequest<RecommendationsResponse>('/recommendations', undefined, 15000, 1);
 }
 
 /**
@@ -249,7 +249,7 @@ export async function getStockAnalysis(code: string, refresh: boolean = false): 
 
   // 请求后端（后端有 L1 内存 + L2 Supabase 缓存）
   const refreshParam = refresh ? '?refresh=true' : '';
-  const data = await apiRequest<StockAnalysis>(`/stock/${code}${refreshParam}`);
+  const data = await apiRequest<StockAnalysis>(`/stock/${code}${refreshParam}`, undefined, 30000, 1);
 
   // 存入前端缓存
   stockCache.set(code, { data, timestamp: Date.now() });
@@ -265,14 +265,14 @@ export async function searchStocks(query: string, limit: number = 20): Promise<{
   count: number;
   results: SearchResult[];
 }> {
-  return apiRequest(`/stocks/search?q=${encodeURIComponent(query)}&limit=${limit}`);
+  return apiRequest(`/stocks/search?q=${encodeURIComponent(query)}&limit=${limit}`, undefined, 10000, 1);
 }
 
 /**
  * 获取市场概览
  */
 export async function getMarketOverview(): Promise<MarketOverview> {
-  return apiRequest<MarketOverview>('/market/overview');
+  return apiRequest<MarketOverview>('/market/overview', undefined, 10000, 1);
 }
 
 /**
@@ -352,7 +352,7 @@ export interface AIRankingsResponse {
 export async function getAIRankings(limit: number = 10, refresh: boolean = false): Promise<AIRankingsResponse> {
   // AI排名需要更长超时（2分钟）和更多重试
   const refreshParam = refresh ? '&refresh=true' : '';
-  return apiRequest(`/rankings/ai?limit=${limit}${refreshParam}`, undefined, 120000, 3);
+  return apiRequest(`/rankings/ai?limit=${limit}${refreshParam}`, undefined, 120000, 0);
 }
 
 /**
@@ -363,11 +363,22 @@ export async function getAIModelStatus(): Promise<{
   timestamp: string;
 }> {
   const healthUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000') + '/ai/status';
-  const response = await fetch(healthUrl, { cache: 'no-store' });
-  if (!response.ok) {
-    throw new Error('无法获取 AI 模型状态');
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5000);
+  try {
+    const response = await fetch(healthUrl, { cache: 'no-store', signal: controller.signal });
+    clearTimeout(timeoutId);
+    if (!response.ok) {
+      throw new Error('无法获取 AI 模型状态');
+    }
+    return response.json();
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('AI 模型状态查询超时');
+    }
+    throw error;
   }
-  return response.json();
 }
 
 /**
