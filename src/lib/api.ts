@@ -490,6 +490,48 @@ export async function getAccuracyStats(
   return apiRequest(`/analysis/accuracy/${code}?user_id=${userId}`);
 }
 
+// ==================== 自选股 API ====================
+
+/**
+ * 获取自选股列表（从后端数据库）
+ */
+export async function getWatchlist(userId: string = 'default_user'): Promise<{
+  user_id: string;
+  count: number;
+  watchlist: Array<{ code: string; name: string; added_at: string; price?: number; change?: number }>;
+}> {
+  return apiRequest(`/watchlist/list?user_id=${encodeURIComponent(userId)}`, undefined, 15000, 1);
+}
+
+/**
+ * 添加自选股（同步到后端数据库）
+ */
+export async function addWatchlistItem(
+  code: string,
+  name: string,
+  userId: string = 'default_user'
+): Promise<{ success: boolean; message: string }> {
+  return apiRequest('/watchlist/add', {
+    method: 'POST',
+    body: JSON.stringify({ code, name, user_id: userId }),
+  }, 10000, 1);
+}
+
+/**
+ * 移除自选股（同步到后端数据库）
+ */
+export async function removeWatchlistItem(
+  code: string,
+  userId: string = 'default_user'
+): Promise<{ success: boolean; message: string }> {
+  return apiRequest('/watchlist/remove', {
+    method: 'DELETE',
+    body: JSON.stringify({ code, user_id: userId }),
+  }, 10000, 1);
+}
+
+// ==================== AI 问答 API ====================
+
 /**
  * AI 问答响应
  */
