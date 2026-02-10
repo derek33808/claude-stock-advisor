@@ -397,8 +397,8 @@ export async function getStockQuickAnalysis(code: string): Promise<StockAnalysis
   const data = await apiRequest<StockAnalysis>(
     `/stock/${code}?ai_analysis=false`,
     undefined,
-    20000, // 20s timeout (no AI analysis, should be fast)
-    0      // no retries
+    30000, // 30s timeout (uncached ETFs can take 20s+)
+    0      // no retries - avoid overwhelming Render free tier
   );
 
   stockCache.set(code, { data, timestamp: Date.now() });
