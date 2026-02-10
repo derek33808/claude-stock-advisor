@@ -73,9 +73,20 @@ async def refresh_all(data: RefreshAllRequest):
             # 步骤1: 生成推荐（如果需要）
             if include_recommendations:
                 try:
-                    yield f"data: {json.dumps({'event': 'progress', 'phase': 'recommendations', 'current': '正在生成推荐...', 'progress': int(tasks_completed / total_tasks * 100), 'completed': tasks_completed, 'total': total_tasks})}\n\n"
+                    yield f"data: {json.dumps({'event': 'progress', 'phase': 'recommendations', 'current': '正在生成推荐...', 'progress': 0, 'completed': 0, 'total': total_tasks})}\n\n"
 
-                    recommendations = await strategy_service.generate_daily_recommendations(top_n=10)
+                    # 后台运行推荐生成，每5秒发一次心跳
+                    rec_task = asyncio.create_task(
+                        strategy_service.generate_daily_recommendations(top_n=10)
+                    )
+                    elapsed = 0
+                    while not rec_task.done():
+                        done, _ = await asyncio.wait({rec_task}, timeout=5)
+                        if not done:
+                            elapsed += 5
+                            yield f"data: {json.dumps({'event': 'progress', 'phase': 'recommendations', 'current': f'正在分析股票池... ({elapsed}s)', 'progress': min(int(elapsed / 180 * 50), 45), 'completed': 0, 'total': total_tasks})}\n\n"
+
+                    recommendations = rec_task.result()
 
                     if recommendations:
                         today = datetime.now().strftime("%Y-%m-%d")
