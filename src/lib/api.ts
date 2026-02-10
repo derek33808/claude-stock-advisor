@@ -382,6 +382,30 @@ export async function getAIModelStatus(): Promise<{
 }
 
 /**
+ * 轻量级股票分析（跳过AI分析，用于自选股列表快速加载）
+ * - 跳过 GLM-4 AI 分析（节省 10-20s）
+ * - 无重试（避免压垮 Render 免费版后端）
+ * - 仍使用后端三层缓存（L1/L2 命中时秒级返回）
+ */
+export async function getStockQuickAnalysis(code: string): Promise<StockAnalysis> {
+  // 检查前端缓存
+  const cached = stockCache.get(code);
+  if (cached && Date.now() - cached.timestamp < STOCK_CACHE_MS) {
+    return cached.data;
+  }
+
+  const data = await apiRequest<StockAnalysis>(
+    `/stock/${code}?ai_analysis=false`,
+    undefined,
+    20000, // 20s timeout (no AI analysis, should be fast)
+    0      // no retries
+  );
+
+  stockCache.set(code, { data, timestamp: Date.now() });
+  return data;
+}
+
+/**
  * 批量获取股票分析（缓存优先 + 实时价格）
  * 用于自选股列表快速加载
  */

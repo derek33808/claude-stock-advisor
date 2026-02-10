@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useWatchlist } from '@/lib/watchlist-context';
 import { StockRecommendation } from '@/lib/types';
-import { getStockAnalysis, prefetchStocks, StockAnalysis } from '@/lib/api';
+import { getStockQuickAnalysis, prefetchStocks, StockAnalysis } from '@/lib/api';
 import StockCard from './StockCard';
 import TabSwitcher, { TabType } from './TabSwitcher';
 import Link from 'next/link';
@@ -99,7 +99,7 @@ export default function HomeContent({ recommendations }: HomeContentProps) {
     // 限制并发数的加载函数
     const loadOne = async (item: { code: string; name: string }, index: number) => {
       try {
-        const analysis = await getStockAnalysis(item.code);
+        const analysis = await getStockQuickAnalysis(item.code);
         const rec = convertToRecommendation(analysis);
         setWatchlistStocks(prev => {
           const next = [...prev];
