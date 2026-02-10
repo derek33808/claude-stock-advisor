@@ -16,8 +16,8 @@ GLM_API_URL = "https://open.bigmodel.cn/api/paas/v4/chat/completions"
 GLM_MODEL = "glm-4-flash"
 GLM_TIMEOUT = 15
 
-# 每日问答额度
-DAILY_QUOTA = 10
+# 每日问答额度（测试阶段不限制）
+DAILY_QUOTA = 9999
 
 # 系统提示词
 CHAT_SYSTEM_PROMPT = """你是一位专业的A股分析师助手。用户正在查看一只股票的详细分析页面，
@@ -27,7 +27,7 @@ CHAT_SYSTEM_PROMPT = """你是一位专业的A股分析师助手。用户正在�
 1. 回答要专业、客观、有数据支撑
 2. 使用简洁明了的中文
 3. 不要编造不存在的数据，如果某些数据没有提供，请诚实说明
-4. 控制回答长度在200字以内
+4. 控制回答长度在300字以内
 5. 末尾加上简短的风险提示
 6. 禁止给出明确的买入/卖出建议，只提供分析参考"""
 
@@ -47,19 +47,88 @@ def build_chat_prompt(
 - 综合评分：{stock_context.get('score', 0)}/100
 """
 
+    # 行情数据（所有模板通用）
+    if stock_context.get('open_price') or stock_context.get('high_price'):
+        base_context += f"""
+## 今日行情
+- 开盘价：¥{stock_context.get('open_price', 0)}
+- 最高价：¥{stock_context.get('high_price', 0)}
+- 最低价：¥{stock_context.get('low_price', 0)}
+- 昨收价：¥{stock_context.get('prev_close', 0)}
+- 成交量：{stock_context.get('volume', 0)}
+- 成交额：{stock_context.get('amount', 0)}
+- 总市值：{stock_context.get('market_cap', 0)}
+"""
+
     suggestion = stock_context.get('suggestion', {})
     if suggestion:
         action = suggestion.get('action', '未知')
         base_context += f"- 操作建议：{action}\n"
 
     if template == "financial":
+        # 真实财报数据
+        report = stock_context.get('_financial_report')
+        if report:
+            base_context += f"""
+## 最新财报数据（{report.get('report_type', '季报')} {report.get('report_date', '')[:7]}）
+- 营业收入：{_format_amount(report.get('revenue', 0))}
+- 营收同比增长：{report.get('revenue_yoy', 0):.1f}%
+- 归母净利润：{_format_amount(report.get('net_profit', 0))}
+- 净利润同比增长：{report.get('profit_yoy', 0):.1f}%
+- 每股收益(EPS)：¥{report.get('eps', 0)}
+- 加权ROE：{report.get('roe', 0):.2f}%
+"""
+            highlights = report.get('highlights', [])
+            if highlights:
+                base_context += "- 财报亮点：" + "；".join(highlights) + "\n"
+
+        # AI 基本面分析（补充）
         fundamental = stock_context.get('ai_fundamental', {})
         if fundamental:
             base_context += f"""
-## 基本面数据
+## AI 基本面评估
 - 估值水平：{fundamental.get('valuation_level', '未知')}
 - 盈利能力：{fundamental.get('profitability', '未知')}
+- 财务健康度：{fundamental.get('financial_health', '未知')}
 - 投资价值评分：{fundamental.get('investment_value', '未知')}/10
+"""
+
+    elif template == "news":
+        # 真实新闻和公告数据
+        news_list = stock_context.get('_news', [])
+        announcements = stock_context.get('_announcements', [])
+        if news_list:
+            news_text = "\n".join([
+                f"- [{n.get('date', '')}] [{n.get('type', '中性')}] {n.get('title', '')}"
+                for n in news_list[:8]
+            ])
+            base_context += f"""
+## 近期新闻（最近7天）
+{news_text}
+"""
+        if announcements:
+            ann_text = "\n".join([
+                f"- [{a.get('date', '')}] {a.get('title', '')}"
+                for a in announcements[:5]
+            ])
+            base_context += f"""
+## 重要公告（最近30天）
+{ann_text}
+"""
+        if not news_list and not announcements:
+            base_context += "\n## 近期动态\n暂无近期新闻和公告数据\n"
+
+    elif template == "comparison":
+        # 公司基本情况
+        company = stock_context.get('ai_company', {})
+        if company:
+            base_context += f"""
+## 公司概况
+- 公司简介：{company.get('company_profile', '暂无')}
+- 主营业务：{company.get('main_business', '暂无')}
+- 竞争优势：{company.get('competitive_advantage', '暂无')}
+- 行业地位：{company.get('industry_position', '未知')}
+- 成长潜力：{company.get('growth_potential', '未知')}
 """
 
     elif template == "technical":
@@ -69,21 +138,28 @@ def build_chat_prompt(
             rsi = indicators.get('rsi', {})
             ma = indicators.get('ma', {})
             boll = indicators.get('boll', {})
+            kdj = indicators.get('kdj', {})
             base_context += f"""
 ## 技术指标
-- MACD趋势：{macd.get('trend', '未知')}
-- RSI状态：{rsi.get('level', '未知')}（值：{rsi.get('value', 50)}）
-- 均线排列：{ma.get('alignment', '未知')}
+- MACD趋势：{macd.get('trend', '未知')}，信号：{macd.get('signal', '未知')}
+- RSI状态：{rsi.get('level', '未知')}（RSI6={rsi.get('rsi6', '-')}，RSI12={rsi.get('rsi12', '-')}）
+- 均线排列：{ma.get('alignment', '未知')}，趋势：{ma.get('trend', '未知')}
 - BOLL位置：{boll.get('position', '未知')}
+- KDJ：K={kdj.get('k', '-')} D={kdj.get('d', '-')} J={kdj.get('j', '-')}
 - 量比：{indicators.get('volume_ratio', 1)}
 """
 
     elif template == "risk":
         suggestion = stock_context.get('suggestion', {})
         if suggestion:
+            buy_price = suggestion.get('buy_price', {})
+            take_profit = suggestion.get('take_profit', {})
             base_context += f"""
 ## 交易建议
+- 建议买入区间：¥{buy_price.get('low', 0)} - ¥{buy_price.get('high', 0)}
 - 止损价：¥{suggestion.get('stop_loss', 0)}
+- 目标价1：¥{take_profit.get('target1', 0)}
+- 目标价2：¥{take_profit.get('target2', 0)}
 - 风险等级：{suggestion.get('risk_level', '未知')}
 - 建议仓位：{suggestion.get('position_ratio', '未知')}
 - 持有周期：{suggestion.get('holding_days', '未知')}
@@ -120,6 +196,20 @@ def build_chat_prompt(
 {question}
 
 请根据以上信息回答用户问题。"""
+
+
+def _format_amount(value) -> str:
+    """格式化金额（元→亿/万）"""
+    try:
+        v = float(value)
+        if abs(v) >= 1e8:
+            return f"{v / 1e8:.2f}亿元"
+        elif abs(v) >= 1e4:
+            return f"{v / 1e4:.2f}万元"
+        else:
+            return f"{v:.2f}元"
+    except (ValueError, TypeError):
+        return str(value)
 
 
 def get_remaining_quota(user_id: str) -> int:
@@ -185,7 +275,7 @@ async def call_glm_chat(system_prompt: str, user_prompt: str) -> Optional[dict]:
                 {"role": "user", "content": user_prompt},
             ],
             "temperature": 0.7,
-            "max_tokens": 400,
+            "max_tokens": 600,
         }
 
         client = get_client()
@@ -316,6 +406,29 @@ async def ask_question(
             "price": realtime.get("price", 0) if realtime else 0,
             "change_percent": realtime.get("change", 0) if realtime else 0,
         }
+
+    # 3.5 根据模板类型，实时获取补充数据
+    if template == "news":
+        from app.services import news_service
+        try:
+            import asyncio
+            news_list, announcements = await asyncio.gather(
+                news_service.get_recent_news(code, days=7),
+                news_service.get_announcements(code, days=30),
+            )
+            stock_context['_news'] = news_list
+            stock_context['_announcements'] = announcements
+        except Exception as e:
+            print(f"[Chat] Error fetching news for {code}: {e}")
+
+    elif template == "financial":
+        from app.services import fundamental_service
+        try:
+            report = await fundamental_service.get_latest_financial_report(code)
+            if report:
+                stock_context['_financial_report'] = report
+        except Exception as e:
+            print(f"[Chat] Error fetching financial report for {code}: {e}")
 
     # 4. 构建 prompt 并调用 GLM
     user_prompt = build_chat_prompt(stock_context, question, template)
