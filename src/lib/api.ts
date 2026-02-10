@@ -390,8 +390,8 @@ export async function getBatchStockAnalyses(codes: string[]): Promise<{
   stocks: StockAnalysis[];
 }> {
   if (codes.length === 0) return { count: 0, stocks: [] };
-  // 批量加载缓存未命中时每只需AI分析(~3-5s)，8只可能需要30s+
-  return apiRequest(`/stocks/batch?codes=${codes.join(',')}`, undefined, 90000, 1);
+  // 后端有12s/stock超时保护，总体应在20s内返回
+  return apiRequest(`/stocks/batch?codes=${codes.join(',')}`, undefined, 30000, 1);
 }
 
 /**
