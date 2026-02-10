@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useWatchlist } from '@/lib/watchlist-context';
 import { StockRecommendation } from '@/lib/types';
-import { getStockQuickAnalysis, prefetchStocks, StockAnalysis } from '@/lib/api';
+import { getBatchStockAnalyses, prefetchStocks, StockAnalysis } from '@/lib/api';
 import StockCard from './StockCard';
 import TabSwitcher, { TabType } from './TabSwitcher';
 import Link from 'next/link';
@@ -37,7 +37,31 @@ function convertToRecommendation(analysis: StockAnalysis): StockRecommendation {
   };
 }
 
-// 自选股占位符（加载中/失败时显示）
+// 从批量接口返回的数据（可能是缓存或轻量数据）
+function convertBatchItem(item: Record<string, unknown>): StockRecommendation {
+  const suggestion = (item.suggestion || {}) as Record<string, unknown>;
+  const buyPrice = (suggestion.buy_price || {}) as Record<string, number>;
+  const takeProfit = (suggestion.take_profit || {}) as Record<string, number>;
+  return {
+    code: item.code as string,
+    name: item.name as string,
+    industry: (item.industry as string) || '未知',
+    price: item.price as number,
+    change: item.change as number,
+    score: (item.score as number) || 0,
+    buyPriceLow: buyPrice.low || 0,
+    buyPriceHigh: buyPrice.high || 0,
+    stopLoss: (suggestion.stop_loss as number) || 0,
+    takeProfit1: takeProfit.target1 || 0,
+    takeProfit2: takeProfit.target2 || 0,
+    holdingDays: (suggestion.holding_days as string) || '-',
+    positionRatio: (suggestion.position_ratio as string) || '-',
+    reasons: { technical: [], fundamental: [], capital: [] },
+    riskLevel: ((suggestion.risk_level as string) || 'medium') as 'low' | 'medium' | 'high',
+  };
+}
+
+// 自选股占位符（加载中显示）
 function makePlaceholder(code: string, name: string): StockRecommendation {
   return {
     code,
@@ -63,7 +87,6 @@ export default function HomeContent({ recommendations }: HomeContentProps) {
   const [activeTab, setActiveTab] = useState<TabType>('recommendations');
   const [watchlistStocks, setWatchlistStocks] = useState<StockRecommendation[]>([]);
   const [loadingWatchlist, setLoadingWatchlist] = useState(false);
-  const [loadedCount, setLoadedCount] = useState(0);
   const [watchlistError, setWatchlistError] = useState<string | null>(null);
 
   // 预加载状态（避免重复请求）
@@ -81,63 +104,40 @@ export default function HomeContent({ recommendations }: HomeContentProps) {
   // 稳定的自选股 key
   const watchlistKey = useMemo(() => watchlist.map(w => w.code).join(','), [watchlist]);
 
-  // 逐个加载自选股（限制并发 2 个，避免压垮 Render 免费版后端）
+  // 批量加载自选股（一个请求加载全部）
   const loadWatchlistStocks = useCallback(async () => {
     if (watchlist.length === 0) return;
 
     setLoadingWatchlist(true);
     setWatchlistError(null);
-    setLoadedCount(0);
 
-    // 初始化占位符
-    const placeholders = watchlist.map(item => makePlaceholder(item.code, item.name));
-    setWatchlistStocks(placeholders);
+    // 先显示占位符
+    setWatchlistStocks(watchlist.map(item => makePlaceholder(item.code, item.name)));
 
-    let successCount = 0;
-    let firstRoundFailed: number[] = [];
+    try {
+      const codes = watchlist.map(w => w.code);
+      const result = await getBatchStockAnalyses(codes);
 
-    // 串行加载单只股票
-    const loadOne = async (item: { code: string; name: string }, index: number): Promise<boolean> => {
-      try {
-        const analysis = await getStockQuickAnalysis(item.code);
-        const rec = convertToRecommendation(analysis);
-        setWatchlistStocks(prev => {
-          const next = [...prev];
-          next[index] = rec;
-          return next;
-        });
-        successCount++;
-        return true;
-      } catch {
-        setWatchlistStocks(prev => {
-          const next = [...prev];
-          next[index] = { ...placeholders[index], industry: '加载失败' };
-          return next;
-        });
-        return false;
-      } finally {
-        setLoadedCount(prev => prev + 1);
+      // 按 watchlist 顺序排列结果
+      const stockMap = new Map<string, Record<string, unknown>>();
+      for (const stock of (result.stocks as unknown as Record<string, unknown>[])) {
+        stockMap.set(stock.code as string, stock);
       }
-    };
 
-    // 第一轮：串行加载全部（Render 免费版只能处理 1 个并发）
-    for (let i = 0; i < watchlist.length; i++) {
-      const ok = await loadOne(watchlist[i], i);
-      if (!ok) firstRoundFailed.push(i);
-    }
+      const ordered: StockRecommendation[] = watchlist.map(item => {
+        const data = stockMap.get(item.code);
+        if (data) {
+          return convertBatchItem(data);
+        }
+        return { ...makePlaceholder(item.code, item.name), industry: '暂无数据' };
+      });
 
-    // 第二轮：重试失败的（后端已热身，成功率更高）
-    if (firstRoundFailed.length > 0 && successCount > 0) {
-      for (const idx of firstRoundFailed) {
-        await loadOne(watchlist[idx], idx);
-      }
-    }
-
-    if (successCount === 0) {
+      setWatchlistStocks(ordered);
+    } catch {
       setWatchlistError('加载自选股失败，请检查网络后重试');
+    } finally {
+      setLoadingWatchlist(false);
     }
-
-    setLoadingWatchlist(false);
   }, [watchlist]);
 
   // 当切换到自选股 tab 或自选列表变化时，加载自选股数据
@@ -199,7 +199,7 @@ export default function HomeContent({ recommendations }: HomeContentProps) {
                 去添加 →
               </button>
             </div>
-          ) : watchlistError && loadedCount === 0 ? (
+          ) : watchlistError ? (
             <div className="bg-white rounded-xl shadow-sm border border-red-100 p-6 text-center">
               <div className="text-red-400 text-4xl mb-3">⚠️</div>
               <p className="text-sm text-gray-500">{watchlistError}</p>
@@ -212,10 +212,10 @@ export default function HomeContent({ recommendations }: HomeContentProps) {
             </div>
           ) : (
             <>
-              {/* 加载进度提示 */}
+              {/* 加载提示 */}
               {loadingWatchlist && (
                 <div className="text-center text-xs text-gray-400 py-1">
-                  加载中 {loadedCount}/{watchlist.length}
+                  加载中...
                 </div>
               )}
 

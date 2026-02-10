@@ -229,6 +229,22 @@ def build_response_from_cache(cached: dict, realtime: Optional[dict] = None) -> 
         },
     }
 
+    # 校验建议价格是否与实时价格匹配（LOF基金等可能差10倍）
+    if realtime and price > 0:
+        suggestion = response["suggestion"]
+        buy_high = suggestion.get("buy_price", {}).get("high", 0)
+        if buy_high > 0 and (buy_high / price < 0.3 or buy_high / price > 3.0):
+            print(f"[Cache] Price mismatch for {cached['code']}: realtime={price}, buy_high={buy_high}, recalculating")
+            response["suggestion"] = {
+                "action": suggestion.get("action", "观望"),
+                "buy_price": {"low": round(price * 0.97, 2), "high": round(price * 0.99, 2)},
+                "stop_loss": round(price * 0.93, 2),
+                "take_profit": {"target1": round(price * 1.06, 2), "target2": round(price * 1.09, 2)},
+                "holding_days": suggestion.get("holding_days", "5-15个交易日"),
+                "position_ratio": suggestion.get("position_ratio", "10-15%"),
+                "risk_level": suggestion.get("risk_level", "中"),
+            }
+
     # AI 分析
     ai_analysis = {}
     if cached.get("ai_company"):
