@@ -157,15 +157,32 @@ async def generate_company_analysis(
     industry: str,
     price: float,
     market_cap: float,
+    financial_report: Optional[Dict] = None,
+    news_list: Optional[List] = None,
 ) -> Dict:
-    """生成公司分析报告（异步）"""
+    """生成公司分析报告（异步），传入真实财报和新闻数据"""
     system_prompt = """你是一位资深的股票分析师，专注于A股市场研究。
-请根据提供的股票信息，生成专业的公司分析报告。
+请根据提供的股票信息和真实数据，生成专业的公司分析报告。
 要求：
-1. 内容要专业、客观
+1. 内容要专业、客观，必须基于提供的真实数据
 2. 分析要有逻辑性
 3. 使用中文回复
 4. 返回 JSON 格式"""
+
+    # 构建财报信息
+    financial_text = "暂无财报数据"
+    if financial_report:
+        financial_text = f"""最新财报（{financial_report.get('report_type', '季报')} {financial_report.get('report_date', '')[:7]}）：
+- 营业收入：{_format_amount(financial_report.get('revenue', 0))}，同比{'+' if (financial_report.get('revenue_yoy', 0) or 0) >= 0 else ''}{financial_report.get('revenue_yoy', 0):.1f}%
+- 归母净利润：{_format_amount(financial_report.get('net_profit', 0))}，同比{'+' if (financial_report.get('profit_yoy', 0) or 0) >= 0 else ''}{financial_report.get('profit_yoy', 0):.1f}%
+- EPS：¥{financial_report.get('eps', 0)}
+- ROE：{financial_report.get('roe', 0):.2f}%"""
+
+    # 构建新闻信息
+    news_text = "暂无近期新闻"
+    if news_list:
+        news_items = [f"- [{n.get('type', '中性')}] {n.get('title', '')}" for n in news_list[:5]]
+        news_text = "\n".join(news_items)
 
     user_prompt = f"""请分析以下股票的公司情况：
 
@@ -174,6 +191,11 @@ async def generate_company_analysis(
 所属行业：{industry}
 当前价格：¥{price:.2f}
 市值：{market_cap:.2f}亿元
+
+{financial_text}
+
+近期新闻：
+{news_text}
 
 请返回以下 JSON 格式的分析结果：
 {{
@@ -221,15 +243,29 @@ async def generate_fundamental_analysis(
     change: float,
     market_cap: float,
     indicators: Dict,
+    financial_report: Optional[Dict] = None,
 ) -> Dict:
-    """生成基本面分析（异步）"""
+    """生成基本面分析（异步），传入真实财报数据"""
     system_prompt = """你是一位资深的股票分析师，擅长基本面分析。
-请根据提供的股票信息，生成专业的基本面分析报告。
+请根据提供的股票信息和真实财报数据，生成专业的基本面分析报告。
+要求：必须基于提供的真实数据进行分析，不要编造数据。
 要求返回 JSON 格式。"""
 
     ma = indicators.get("ma", {})
     rsi = indicators.get("rsi", {})
     volume = indicators.get("volume", {})
+
+    # 构建真实财报数据
+    financial_text = "暂无财报数据，请基于市值和技术面进行估值判断。"
+    if financial_report:
+        financial_text = f"""最新财报（{financial_report.get('report_type', '季报')} {financial_report.get('report_date', '')[:7]}）：
+- 营业收入：{_format_amount(financial_report.get('revenue', 0))}，同比增长{financial_report.get('revenue_yoy', 0):.1f}%
+- 归母净利润：{_format_amount(financial_report.get('net_profit', 0))}，同比增长{financial_report.get('profit_yoy', 0):.1f}%
+- 每股收益(EPS)：¥{financial_report.get('eps', 0)}
+- 加权ROE：{financial_report.get('roe', 0):.2f}%"""
+        highlights = financial_report.get('highlights', [])
+        if highlights:
+            financial_text += "\n- 财报亮点：" + "；".join(highlights)
 
     user_prompt = f"""请对以下股票进行基本面分析：
 
@@ -238,6 +274,8 @@ async def generate_fundamental_analysis(
 当前价格：¥{price:.2f}
 今日涨跌：{'+' if change >= 0 else ''}{change:.2f}%
 市值：{market_cap:.2f}亿元
+
+{financial_text}
 
 技术面参考：
 - 均线趋势：{ma.get('trend', '未知')}
@@ -305,14 +343,37 @@ async def generate_ai_score_and_recommendation(
     suggestion: Dict,
     company_analysis: Dict,
     fundamental_analysis: Dict,
+    financial_report: Optional[Dict] = None,
+    news_list: Optional[List] = None,
 ) -> Dict:
-    """生成 AI 智能评分和投资建议（异步）"""
-    system_prompt = """你是一位专业的投资顾问，请综合技术面、基本面分析，给出最终的投资建议。
+    """生成 AI 智能评分和投资建议（异步），综合所有维度数据"""
+    system_prompt = """你是一位专业的投资顾问，请综合技术面、基本面、新闻动态等多维度分析，给出最终的投资建议。
+必须基于提供的真实数据进行综合判断，不要编造数据。
 要求返回 JSON 格式。"""
 
     macd = indicators.get("macd", {})
     rsi = indicators.get("rsi", {})
     ma = indicators.get("ma", {})
+    kdj = indicators.get("kdj", {})
+    boll = indicators.get("boll", {})
+
+    # 构建财报摘要
+    financial_text = "暂无财报数据"
+    if financial_report:
+        rev_yoy = financial_report.get('revenue_yoy', 0) or 0
+        profit_yoy = financial_report.get('profit_yoy', 0) or 0
+        financial_text = f"营收{_format_amount(financial_report.get('revenue', 0))}(同比{rev_yoy:+.1f}%)，净利润{_format_amount(financial_report.get('net_profit', 0))}(同比{profit_yoy:+.1f}%)，ROE={financial_report.get('roe', 0):.1f}%"
+
+    # 构建新闻摘要
+    news_text = "暂无近期新闻"
+    if news_list:
+        bullish = len([n for n in news_list if n.get('type') == '利好'])
+        bearish = len([n for n in news_list if n.get('type') == '利空'])
+        neutral = len(news_list) - bullish - bearish
+        news_titles = [n.get('title', '') for n in news_list[:3]]
+        news_text = f"共{len(news_list)}条（利好{bullish}条/利空{bearish}条/中性{neutral}条）"
+        if news_titles:
+            news_text += "\n近期标题：" + "；".join(news_titles)
 
     user_prompt = f"""请对以下股票给出综合投资建议：
 
@@ -322,19 +383,27 @@ async def generate_ai_score_and_recommendation(
 技术评分：{score}/100
 
 【技术面】
-- MACD：{macd.get('signal', '未知')}
-- RSI：{rsi.get('status', '未知')}
-- 均线：{ma.get('trend', '未知')}
+- MACD：{macd.get('signal', '未知')}，趋势：{macd.get('trend', '未知')}
+- RSI：{rsi.get('status', '未知')}（RSI6={rsi.get('rsi6', '-')}）
+- 均线：{ma.get('trend', '未知')}，排列：{ma.get('alignment', '未知')}
+- KDJ：K={kdj.get('k', '-')} D={kdj.get('d', '-')} J={kdj.get('j', '-')}
+- BOLL位置：{boll.get('position', '未知')}
 - 操作建议：{suggestion.get('action', '观望')}
 
 【公司分析】
 - 行业地位：{company_analysis.get('industry_position', '未知')}
 - 成长潜力：{company_analysis.get('growth_potential', '未知')}
+- 竞争优势：{company_analysis.get('competitive_advantage', '未知')}
 
-【基本面】
-- 估值：{fundamental_analysis.get('valuation_level', '未知')}
+【基本面（真实财报数据）】
+- {financial_text}
+- 估值判断：{fundamental_analysis.get('valuation_level', '未知')}
 - 盈利能力：{fundamental_analysis.get('profitability', '未知')}
+- 财务健康：{fundamental_analysis.get('financial_health', '未知')}
 - 投资价值：{fundamental_analysis.get('investment_value', 5)}/10
+
+【近期新闻动态】
+{news_text}
 
 请返回以下 JSON 格式：
 {{
@@ -343,12 +412,12 @@ async def generate_ai_score_and_recommendation(
     "confidence": "置信度（高/中/低）",
     "time_horizon": "建议持有周期",
     "key_points": ["核心观点1", "核心观点2", "核心观点3"],
-    "ai_summary": "AI智能分析总结（150字以内，专业且易懂）"
+    "ai_summary": "AI智能分析总结（150字以内，专业且易懂，需要综合技术面、基本面和新闻面）"
 }}
 
 只返回 JSON，不要其他内容。"""
 
-    content, error_type = await call_glm_api(system_prompt, user_prompt, 500)
+    content, error_type = await call_glm_api(system_prompt, user_prompt, 600)
 
     if content:
         try:
@@ -413,8 +482,9 @@ async def get_full_ai_analysis(
 ) -> Dict:
     """
     获取完整的 AI 智能分析
-    - 步骤1和步骤2并行执行（公司分析 + 基本面分析）
-    - 步骤3串行执行（依赖步骤1和2的结果）
+    - 步骤0：并行获取真实财报 + 新闻数据
+    - 步骤1和步骤2并行执行（公司分析 + 基本面分析），传入真实数据
+    - 步骤3串行执行（依赖步骤1和2的结果），传入所有数据
     - 缓存同一天同一股票的结果
 
     Returns:
@@ -426,17 +496,47 @@ async def get_full_ai_analysis(
     if cache_key in _ai_analysis_cache:
         return _ai_analysis_cache[cache_key]
 
-    # 1 & 2. 公司分析 + 基本面分析 并行执行
+    # 0. 并行获取真实财报 + 新闻数据
+    from app.services import fundamental_service, news_service
+    financial_report = None
+    news_list = []
+    try:
+        report_result, news_result = await asyncio.gather(
+            fundamental_service.get_latest_financial_report(code),
+            news_service.get_recent_news(code, days=7),
+            return_exceptions=True,
+        )
+        if isinstance(report_result, dict):
+            financial_report = report_result
+        else:
+            print(f"[AI] 获取 {code} 财报失败: {report_result}")
+        if isinstance(news_result, list):
+            news_list = news_result
+        else:
+            print(f"[AI] 获取 {code} 新闻失败: {news_result}")
+    except Exception as e:
+        print(f"[AI] 获取 {code} 补充数据失败: {e}")
+
+    # 1 & 2. 公司分析 + 基本面分析 并行执行（传入真实数据）
     company_analysis, fundamental_analysis = await asyncio.gather(
-        generate_company_analysis(name, code, industry, price, market_cap),
-        generate_fundamental_analysis(name, code, price, change, market_cap, indicators),
+        generate_company_analysis(
+            name, code, industry, price, market_cap,
+            financial_report=financial_report,
+            news_list=news_list,
+        ),
+        generate_fundamental_analysis(
+            name, code, price, change, market_cap, indicators,
+            financial_report=financial_report,
+        ),
     )
 
-    # 3. AI 智能评分和建议（依赖上面两个结果，串行）
+    # 3. AI 智能评分和建议（依赖上面两个结果，串行，传入所有数据）
     ai_recommendation = await generate_ai_score_and_recommendation(
         name, code, price, change, score,
         indicators, suggestion,
-        company_analysis, fundamental_analysis
+        company_analysis, fundamental_analysis,
+        financial_report=financial_report,
+        news_list=news_list,
     )
 
     result = {
@@ -492,3 +592,17 @@ def calculate_ai_ranking_score(
         base_score -= 5
 
     return max(0, min(100, int(base_score)))
+
+
+def _format_amount(value) -> str:
+    """格式化金额（元→亿/万）"""
+    try:
+        v = float(value)
+        if abs(v) >= 1e8:
+            return f"{v / 1e8:.2f}亿元"
+        elif abs(v) >= 1e4:
+            return f"{v / 1e4:.2f}万元"
+        else:
+            return f"{v:.2f}元"
+    except (ValueError, TypeError):
+        return str(value)
