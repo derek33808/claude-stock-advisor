@@ -62,6 +62,10 @@ def get_ai_model_status() -> Dict:
     return _ai_model_status.get_status()
 
 
+# 分析服务固定使用 glm-4-flash，避免与聊天问答竞争速率配额
+ANALYSIS_MODEL = "glm-4-flash"
+
+
 async def call_glm_api(system_prompt: str, user_prompt: str, max_tokens: int = 800, model_id: Optional[str] = None) -> Tuple[Optional[str], Optional[str]]:
     """
     调用大模型 API（统一路由）
@@ -70,14 +74,14 @@ async def call_glm_api(system_prompt: str, user_prompt: str, max_tokens: int = 8
         system_prompt: 系统提示词
         user_prompt: 用户提示词
         max_tokens: 最大生成 token 数
-        model_id: 模型ID（为空则使用默认模型）
+        model_id: 模型ID（为空则使用分析专用模型 glm-4-flash）
 
     Returns:
         Tuple of (content, error_type)
     """
     content, error_type = await call_llm(
         system_prompt, user_prompt,
-        model_id=model_id,
+        model_id=model_id or ANALYSIS_MODEL,
         max_tokens=max_tokens,
     )
 
@@ -493,7 +497,7 @@ async def get_full_ai_analysis(
         "ai_recommendation": ai_recommendation,
         "financial_report": financial_report,
         "recent_news": news_list,
-        "model_used": model_id or DEFAULT_MODEL,
+        "model_used": model_id or ANALYSIS_MODEL,
         "analysis_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
     }
 
