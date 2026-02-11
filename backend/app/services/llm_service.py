@@ -127,47 +127,14 @@ def _get_api_key(model_id: str) -> str:
     return getattr(settings, config["api_key_field"], "") or ""
 
 
-async def call_llm(
-    system_prompt: str,
-    user_prompt: str,
-    model_id: Optional[str] = None,
-    max_tokens: int = 800,
-    temperature: float = 0.7,
+async def _call_llm_once(
+    config: Dict,
+    api_key: str,
+    model_id: str,
+    data: Dict,
 ) -> Tuple[Optional[str], Optional[str]]:
-    """
-    统一大模型调用接口
-
-    Args:
-        system_prompt: 系统提示词
-        user_prompt: 用户提示词
-        model_id: 模型ID（为空则使用默认模型）
-        max_tokens: 最大生成 token 数
-        temperature: 温度参数
-
-    Returns:
-        Tuple of (content, error_type)
-    """
-    if not model_id or model_id not in MODEL_REGISTRY:
-        model_id = DEFAULT_MODEL
-
-    config = MODEL_REGISTRY[model_id]
-    api_key = _get_api_key(model_id)
-
-    if not api_key:
-        print(f"[LLM] 模型 {model_id} 未配置 API Key")
-        return None, "no_api_key"
-
+    """单次 LLM 调用"""
     try:
-        data = {
-            "model": model_id,
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            "temperature": temperature,
-            "max_tokens": max_tokens,
-        }
-
         client = get_client()
         resp = await client.post(
             config["api_url"],
@@ -186,7 +153,6 @@ async def call_llm(
             if resp.status_code == 401:
                 return None, "auth_failed"
             elif resp.status_code == 429:
-                # 区分限流和余额不足
                 if "1113" in error_body or "余额" in error_body or "quota" in error_body.lower():
                     return None, "quota_exhausted"
                 return None, "rate_limited"
@@ -211,3 +177,46 @@ async def call_llm(
     except Exception as e:
         print(f"[LLM] {model_id} 调用失败: {e}")
         return None, "unknown"
+
+
+async def call_llm(
+    system_prompt: str,
+    user_prompt: str,
+    model_id: Optional[str] = None,
+    max_tokens: int = 800,
+    temperature: float = 0.7,
+) -> Tuple[Optional[str], Optional[str]]:
+    """
+    统一大模型调用接口（含速率限制重试）
+    """
+    if not model_id or model_id not in MODEL_REGISTRY:
+        model_id = DEFAULT_MODEL
+
+    config = MODEL_REGISTRY[model_id]
+    api_key = _get_api_key(model_id)
+
+    if not api_key:
+        print(f"[LLM] 模型 {model_id} 未配置 API Key")
+        return None, "no_api_key"
+
+    data = {
+        "model": model_id,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+    }
+
+    # 最多重试2次（速率限制时等待后重试）
+    for attempt in range(3):
+        content, error_type = await _call_llm_once(config, api_key, model_id, data)
+        if error_type == "rate_limited" and attempt < 2:
+            wait = 3 * (attempt + 1)
+            print(f"[LLM] {model_id} 速率限制，{wait}秒后重试 ({attempt + 1}/2)")
+            await asyncio.sleep(wait)
+            continue
+        return content, error_type
+
+    return None, "rate_limited"
