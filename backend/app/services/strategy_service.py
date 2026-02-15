@@ -3,6 +3,7 @@
 实现各种选股策略和综合筛选
 """
 
+import asyncio
 import pandas as pd
 from typing import Optional
 from app.services import eastmoney_service, indicator_service
@@ -243,102 +244,118 @@ async def analyze_stock(code: str) -> Optional[dict]:
     }
 
 
+def _build_recommendation(analysis: dict, ai_analysis=None) -> dict:
+    """将分析结果格式化为推荐条目"""
+    return {
+        "code": analysis["code"],
+        "name": analysis["name"],
+        "industry": analysis["industry"],
+        "price": analysis["price"],
+        "change": analysis["change"],
+        "score": analysis["score"],
+        "buy_price_low": analysis["suggestion"]["buy_price_low"],
+        "buy_price_high": analysis["suggestion"]["buy_price_high"],
+        "stop_loss": analysis["suggestion"]["stop_loss"],
+        "take_profit_1": analysis["suggestion"]["take_profit_1"],
+        "take_profit_2": analysis["suggestion"]["take_profit_2"],
+        "holding_days": analysis["suggestion"]["holding_days"],
+        "position_ratio": analysis["suggestion"]["position"],
+        "risk_level": analysis["suggestion"]["risk_level"],
+        "reasons": analysis["reasons"],
+        "ai_analysis": ai_analysis,
+    }
+
+
 async def generate_daily_recommendations(top_n: int = 10) -> list[dict]:
     """
-    生成每日推荐
+    生成每日推荐（全并行优化，~2 分钟内完成）
 
-    采用两轮筛选：
-    1. 快速技术分析所有股票（不调AI），按综合分排序
-    2. 对 top 候选者补充 AI 基本面分析
-
-    选股规则（宽松分层）：
-    - Tier 1: 策略信号 + score >= 50  → 综合分 +5 奖励
-    - Tier 2: score >= 55（仅靠评分也能入选）
-    - 保底: 始终返回 top_n（按评分降序）
+    两轮筛选：
+    1. 并行技术分析全部股票（Semaphore=5），按综合分排序
+    2. 并行 AI 分析 top 5（Semaphore=3），其余仅技术面
     """
     try:
         from app.services.eastmoney_service import STOCK_LIST
 
-        # ---- 第一轮：快速技术分析全部股票 ----
-        all_analyzed = []
-        for code, name, industry in STOCK_LIST:
-            try:
-                analysis = await analyze_stock(code)
-                if analysis is None or analysis["score"] <= 0:
-                    continue
+        # ---- 第一轮：并行技术分析 (Semaphore=5, ~40s) ----
+        analysis_sem = asyncio.Semaphore(5)
 
-                strategies = analysis["strategies"]
+        async def _safe_analyze(code):
+            async with analysis_sem:
+                try:
+                    return await analyze_stock(code)
+                except Exception as e:
+                    print(f"Error analyzing {code}: {e}")
+                    return None
+
+        results = await asyncio.gather(
+            *[_safe_analyze(code) for code, _, _ in STOCK_LIST],
+            return_exceptions=True,
+        )
+
+        all_analyzed = []
+        for r in results:
+            if isinstance(r, dict) and r.get("score", 0) > 0:
+                strategies = r["strategies"]
                 has_signal = any(strategies.values())
-                # 有策略信号的加 5 分奖励（排序用）
-                sort_score = analysis["score"] + (5 if has_signal else 0)
-                analysis["_sort_score"] = sort_score
-                analysis["_has_signal"] = has_signal
-                all_analyzed.append(analysis)
-            except Exception as e:
-                print(f"Error analyzing {code}: {e}")
-                continue
+                r["_sort_score"] = r["score"] + (5 if has_signal else 0)
+                all_analyzed.append(r)
 
         if not all_analyzed:
             return []
 
-        # 按综合排序分降序
         all_analyzed.sort(key=lambda x: x["_sort_score"], reverse=True)
 
-        # 候选池：score >= 50 的都可以推荐，最多取 top_n
+        # 候选池
         candidates = [a for a in all_analyzed if a["score"] >= 50]
-
-        # 保底：如果候选不足 top_n，用纯评分补齐
         if len(candidates) < top_n:
-            existing_codes = {c["code"] for c in candidates}
+            existing = {c["code"] for c in candidates}
             for a in all_analyzed:
-                if a["code"] not in existing_codes:
+                if a["code"] not in existing:
                     candidates.append(a)
                 if len(candidates) >= top_n:
                     break
-
-        # 取 top_n
         candidates = candidates[:top_n]
 
-        print(f"[Recommend] 共分析 {len(all_analyzed)} 只, 候选 {len(candidates)} 只")
+        print(f"[Recommend] 分析 {len(all_analyzed)} 只, 候选 {len(candidates)} 只")
 
-        # ---- 第二轮：为候选者补充 AI 分析 ----
+        # ---- 第二轮：并行 AI 分析 top 5 (Semaphore=3, ~90s) ----
+        ai_sem = asyncio.Semaphore(3)
+        ai_top_n = min(5, len(candidates))  # 只对前 5 名做 AI 分析
+
+        async def _enrich_with_ai(analysis):
+            async with ai_sem:
+                try:
+                    ai_result = await get_full_ai_analysis(
+                        name=analysis["name"],
+                        code=analysis["code"],
+                        industry=analysis["industry"],
+                        price=analysis["price"],
+                        change=analysis["change"],
+                        market_cap=analysis.get("market_cap", 0),
+                        score=analysis["score"],
+                        indicators=analysis.get("indicators", {}),
+                        suggestion=analysis["suggestion"],
+                    )
+                    print(f"[AI] {analysis['name']} AI分析完成")
+                    return ai_result
+                except Exception as e:
+                    print(f"[AI] {analysis['name']} AI分析失败: {e}")
+                    return None
+
+        # 并行获取前 5 名的 AI 分析
+        ai_results = await asyncio.gather(
+            *[_enrich_with_ai(c) for c in candidates[:ai_top_n]],
+            return_exceptions=True,
+        )
+
+        # 组装推荐列表
         recommendations = []
-        for analysis in candidates:
-            ai_analysis = None
-            try:
-                ai_analysis = await get_full_ai_analysis(
-                    name=analysis["name"],
-                    code=analysis["code"],
-                    industry=analysis["industry"],
-                    price=analysis["price"],
-                    change=analysis["change"],
-                    market_cap=analysis.get("market_cap", 0),
-                    score=analysis["score"],
-                    indicators=analysis.get("indicators", {}),
-                    suggestion=analysis["suggestion"],
-                )
-                print(f"[AI] 获取 {analysis['name']} AI分析成功")
-            except Exception as ai_err:
-                print(f"[AI] 获取 {analysis['name']} AI分析失败: {ai_err}")
-
-            recommendations.append({
-                "code": analysis["code"],
-                "name": analysis["name"],
-                "industry": analysis["industry"],
-                "price": analysis["price"],
-                "change": analysis["change"],
-                "score": analysis["score"],
-                "buy_price_low": analysis["suggestion"]["buy_price_low"],
-                "buy_price_high": analysis["suggestion"]["buy_price_high"],
-                "stop_loss": analysis["suggestion"]["stop_loss"],
-                "take_profit_1": analysis["suggestion"]["take_profit_1"],
-                "take_profit_2": analysis["suggestion"]["take_profit_2"],
-                "holding_days": analysis["suggestion"]["holding_days"],
-                "position_ratio": analysis["suggestion"]["position"],
-                "risk_level": analysis["suggestion"]["risk_level"],
-                "reasons": analysis["reasons"],
-                "ai_analysis": ai_analysis,
-            })
+        for i, analysis in enumerate(candidates):
+            ai_data = None
+            if i < ai_top_n and not isinstance(ai_results[i], Exception):
+                ai_data = ai_results[i]
+            recommendations.append(_build_recommendation(analysis, ai_data))
 
         return recommendations
 
