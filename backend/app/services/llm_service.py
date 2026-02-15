@@ -175,10 +175,16 @@ async def _call_llm_once(
         result = resp.json()
 
         if result.get("choices") and len(result["choices"]) > 0:
-            content = result["choices"][0].get("message", {}).get("content", "")
+            message = result["choices"][0].get("message", {})
+            content = message.get("content", "")
+            # GLM-5 思考模式：content 可能为空，实际内容在 reasoning_content
+            if not content and message.get("reasoning_content"):
+                content = message["reasoning_content"]
             if content:
                 return content.strip(), None
 
+        # 调试：记录意外的空响应
+        print(f"[LLM] {model_id} 返回200但无有效内容: {str(result)[:500]}")
         return None, None
 
     except asyncio.TimeoutError:
