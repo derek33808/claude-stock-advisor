@@ -130,6 +130,24 @@ def _get_market_code(code: str) -> str:
     return '0'
 
 
+def _is_fund(code: str) -> bool:
+    """
+    判断是否为基金（ETF/LOF），这类产品价格单位为厘（1/1000元）
+
+    覆盖:
+      - 5xxxxx: 沪市 ETF (510, 511, 512, 513, 515, 516, 518, 560, 588 等)
+      - 159xxx: 深市 ETF
+      - 16xxxx: 深市 LOF (160, 161, 162, 163, 164, 165, 166, 167, 168, 169)
+      - 501xxx: 沪市 LOF
+    """
+    return (
+        code.startswith('5') or       # 沪市 ETF
+        code.startswith('159') or      # 深市 ETF
+        code.startswith('16') or       # 深市 LOF
+        code.startswith('501')         # 沪市 LOF
+    )
+
+
 async def get_stock_realtime(code: str) -> Optional[dict]:
     """
     获取单只股票实时行情（异步）
@@ -154,9 +172,9 @@ async def get_stock_realtime(code: str) -> Optional[dict]:
 
             d = data['data']
 
-            # ETF (5开头) 价格单位是厘(1/1000元)，普通股票是分(1/100元)
-            is_etf = code.startswith('5') or code.startswith('159')
-            price_divisor = 1000 if is_etf else 100
+            # 基金(ETF/LOF)价格单位是厘(1/1000元)，普通股票是分(1/100元)
+            is_fund = _is_fund(code)
+            price_divisor = 1000 if is_fund else 100
 
             price = d.get('f43', 0) / price_divisor if d.get('f43') else 0
             high = d.get('f44', 0) / price_divisor if d.get('f44') else 0
@@ -457,8 +475,8 @@ async def get_batch_realtime(codes: List[str]) -> Dict[str, dict]:
                 if not code:
                     continue
 
-                is_etf = code.startswith('5') or code.startswith('159')
-                price_divisor = 1000 if is_etf else 100
+                is_fund = _is_fund(code)
+                price_divisor = 1000 if is_fund else 100
 
                 price = item.get('f2', 0)
                 if isinstance(price, str):
@@ -477,7 +495,7 @@ async def get_batch_realtime(codes: List[str]) -> Dict[str, dict]:
                 result[code] = {
                     "code": code,
                     "name": name or info["name"],
-                    "price": round(price, 3) if is_etf else round(price, 2),
+                    "price": round(price, 3) if is_fund else round(price, 2),
                     "change": round(change, 2),
                     "open": round(item.get('f17', 0) / price_divisor, 2) if item.get('f17') and not isinstance(item.get('f17'), str) else 0,
                     "high": round(item.get('f15', 0) / price_divisor, 2) if item.get('f15') and not isinstance(item.get('f15'), str) else 0,

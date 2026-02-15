@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import Link from 'next/link';
-import { getStockAnalysis, StockAnalysis, ScoreDimensions, PricePrediction, isBackendPossiblyAsleep } from '@/lib/api';
+import { getStockAnalysis, getStockQuickAnalysis, StockAnalysis, ScoreDimensions, PricePrediction, isBackendPossiblyAsleep } from '@/lib/api';
 import Disclaimer from './Disclaimer';
 import WatchlistButton from './WatchlistButton';
 import ProgressBar from './ProgressBar';
@@ -16,27 +16,60 @@ export default function StockDetailClient({ code }: StockDetailClientProps) {
   const [stock, setStock] = useState<StockAnalysis | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadingAI, setLoadingAI] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loadingMessage, setLoadingMessage] = useState('加载股票数据中...');
   const [retryCount, setRetryCount] = useState(0);
+  const aiLoadedRef = useRef(false);
 
+  // 两阶段加载：
+  // Phase 1: 快速加载基础数据（无AI，通常 1-5s，缓存命中时 <1s）
+  // Phase 2: 后台加载完整AI分析，到达后自动更新UI
   const fetchStock = useCallback(async (forceRefresh: boolean = false) => {
     try {
       if (forceRefresh) {
         setRefreshing(true);
+        aiLoadedRef.current = false;
       } else {
         setLoading(true);
       }
       setError(null);
 
-      // apiRequest 内部已处理唤醒逻辑，此处只更新 UI 提示
-      if (!forceRefresh && isBackendPossiblyAsleep()) {
+      if (forceRefresh) {
+        // 刷新时：直接请求完整分析（含AI）
+        setLoadingMessage('正在重新分析...');
+        const data = await getStockAnalysis(code, true);
+        setStock(data);
+        aiLoadedRef.current = true;
+      } else if (isBackendPossiblyAsleep()) {
+        // 冷启动：直接请求完整分析（会触发唤醒）
         setLoadingMessage('正在连接后端服务...');
+        const data = await getStockAnalysis(code, false);
+        setStock(data);
+        aiLoadedRef.current = true;
       } else {
-        setLoadingMessage(forceRefresh ? '正在重新分析...' : '正在获取股票数据...');
+        // 正常加载：先快速获取基础数据，再后台加载AI
+        setLoadingMessage('正在获取股票数据...');
+        const quickData = await getStockQuickAnalysis(code);
+        setStock(quickData);
+        setLoading(false);
+
+        // Phase 2: 后台加载AI分析（不阻塞UI）
+        if (!aiLoadedRef.current) {
+          setLoadingAI(true);
+          try {
+            const fullData = await getStockAnalysis(code, false);
+            setStock(fullData);
+            aiLoadedRef.current = true;
+          } catch {
+            // AI 加载失败不影响已显示的基础数据
+            console.log('[AI] Background AI load failed, keeping basic data');
+          } finally {
+            setLoadingAI(false);
+          }
+        }
+        return; // 已经在上面设置了 loading=false
       }
-      const data = await getStockAnalysis(code, forceRefresh);
-      setStock(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : '加载失败');
     } finally {
@@ -46,6 +79,7 @@ export default function StockDetailClient({ code }: StockDetailClientProps) {
   }, [code]);
 
   useEffect(() => {
+    aiLoadedRef.current = false;
     fetchStock();
   }, [fetchStock, retryCount]);
 
@@ -194,6 +228,14 @@ export default function StockDetailClient({ code }: StockDetailClientProps) {
         <div className="mb-3 flex items-center justify-between px-3 py-2 bg-gray-50 rounded-lg text-xs text-gray-500">
           <span>分析数据 · {cacheHint}</span>
           <span className="text-green-500">行情实时</span>
+        </div>
+      )}
+
+      {/* AI 后台加载提示 */}
+      {loadingAI && (
+        <div className="mb-3 flex items-center justify-center gap-2 px-3 py-2 bg-blue-50 rounded-lg text-xs text-blue-600">
+          <span className="animate-spin">⟳</span>
+          <span>AI 智能分析加载中...</span>
         </div>
       )}
 

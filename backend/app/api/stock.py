@@ -536,22 +536,41 @@ async def get_batch_stock_analyses(
 @router.post("/stocks/prefetch")
 async def prefetch_stocks(codes: List[str]):
     """
-    批量预加载股票数据（后台缓存）
+    批量预加载股票数据（并行，后台缓存预热）
     """
-    results = {"success": [], "failed": []}
+    codes = codes[:20]
+    semaphore = asyncio.Semaphore(5)
 
-    for code in codes[:20]:
-        try:
-            await get_stock_analysis(code, ai_analysis=False, refresh=False)
-            results["success"].append(code)
-        except Exception as e:
-            results["failed"].append({"code": code, "error": str(e)})
+    async def _prefetch_one(code: str) -> tuple[str, bool, str]:
+        async with semaphore:
+            try:
+                await get_stock_analysis(code, ai_analysis=False, refresh=False)
+                return (code, True, "")
+            except Exception as e:
+                return (code, False, str(e))
+
+    results_raw = await asyncio.gather(
+        *[_prefetch_one(c) for c in codes],
+        return_exceptions=True,
+    )
+
+    success = []
+    failed = []
+    for r in results_raw:
+        if isinstance(r, tuple):
+            code, ok, err = r
+            if ok:
+                success.append(code)
+            else:
+                failed.append({"code": code, "error": err})
+        elif isinstance(r, Exception):
+            failed.append({"code": "unknown", "error": str(r)})
 
     return {
         "total": len(codes),
-        "cached": len(results["success"]),
-        "failed": len(results["failed"]),
-        "details": results
+        "cached": len(success),
+        "failed": len(failed),
+        "details": {"success": success, "failed": failed}
     }
 
 
