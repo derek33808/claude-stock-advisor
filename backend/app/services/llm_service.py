@@ -12,7 +12,18 @@ from app.http_client import get_client
 
 # 模型配置注册表
 MODEL_REGISTRY: Dict[str, Dict] = {
-    # 智谱 GLM-4.7 系列（最新）
+    # 智谱 GLM-5（最新旗舰）
+    "glm-5": {
+        "provider": "zhipu",
+        "api_url": "https://open.bigmodel.cn/api/paas/v4/chat/completions",
+        "api_key_field": "glm_api_key",
+        "display_name": "GLM-5",
+        "description": "最新旗舰模型，744B MoE，支持推理（付费）",
+        "max_tokens": 4096,
+        "timeout": 90,
+        "free": False,
+    },
+    # 智谱 GLM-4.7 系列
     "glm-4.7": {
         "provider": "zhipu",
         "api_url": "https://open.bigmodel.cn/api/paas/v4/chat/completions",
@@ -98,7 +109,7 @@ MODEL_REGISTRY: Dict[str, Dict] = {
 }
 
 # 默认模型
-DEFAULT_MODEL = "glm-4.7-flash"
+DEFAULT_MODEL = "glm-5"
 
 
 def get_available_models() -> List[Dict]:

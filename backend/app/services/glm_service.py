@@ -13,7 +13,7 @@ from app.services.ai_analysis_service import _ai_model_status, _get_glm_api_key
 
 # GLM API 配置
 GLM_API_URL = "https://open.bigmodel.cn/api/paas/v4/chat/completions"
-GLM_MODEL = "glm-4-flash"  # 使用 flash 版本，速度快成本低
+GLM_MODEL = "glm-5"  # 使用最新旗舰模型
 GLM_TIMEOUT = 15
 
 

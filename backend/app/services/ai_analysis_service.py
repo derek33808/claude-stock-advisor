@@ -62,8 +62,8 @@ def get_ai_model_status() -> Dict:
     return _ai_model_status.get_status()
 
 
-# 分析服务固定使用 glm-4-flash，避免与聊天问答竞争速率配额
-ANALYSIS_MODEL = "glm-4-flash"
+# 分析服务使用 GLM-5 旗舰模型，分析质量更高
+ANALYSIS_MODEL = "glm-5"
 
 
 async def call_glm_api(system_prompt: str, user_prompt: str, max_tokens: int = 800, model_id: Optional[str] = None) -> Tuple[Optional[str], Optional[str]]:
