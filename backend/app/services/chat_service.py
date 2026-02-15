@@ -170,6 +170,59 @@ def build_chat_prompt(
 - 量比：{indicators.get('volume_ratio', 1)}
 """
 
+    # 无特定模板时，自动补充所有可用数据，让 LLM 充分分析
+    if not template:
+        # 补充公司概况
+        company = stock_context.get('ai_company', {})
+        if company and company.get('main_business'):
+            base_context += f"""
+## 公司概况
+- 主营业务：{company.get('main_business', '暂无')}
+- 竞争优势：{company.get('competitive_advantage', '暂无')}
+- 行业地位：{company.get('industry_position', '未知')}
+- 成长潜力：{company.get('growth_potential', '未知')}
+"""
+        # 补充 AI 基本面分析
+        fundamental = stock_context.get('ai_fundamental', {})
+        if fundamental:
+            base_context += f"""
+## AI 基本面评估
+- 估值水平：{fundamental.get('valuation_level', '未知')}
+- 盈利能力：{fundamental.get('profitability', '未知')}
+- 财务健康度：{fundamental.get('financial_health', '未知')}
+- 投资价值评分：{fundamental.get('investment_value', '未知')}/10
+"""
+        # 补充技术指标
+        indicators = stock_context.get('indicators', {})
+        if indicators:
+            macd = indicators.get('macd', {})
+            rsi = indicators.get('rsi', {})
+            ma = indicators.get('ma', {})
+            boll = indicators.get('boll', {})
+            kdj = indicators.get('kdj', {})
+            base_context += f"""
+## 技术面分析
+- MACD趋势：{macd.get('trend', '未知')}，信号：{macd.get('signal', '未知')}
+- RSI状态：{rsi.get('level', '未知')}（RSI6={rsi.get('rsi6', '-')}，RSI12={rsi.get('rsi12', '-')}）
+- 均线排列：{ma.get('alignment', '未知')}，趋势：{ma.get('trend', '未知')}
+- BOLL位置：{boll.get('position', '未知')}
+- KDJ：K={kdj.get('k', '-')} D={kdj.get('d', '-')} J={kdj.get('j', '-')}
+- 量比：{indicators.get('volume_ratio', 1)}
+"""
+        # 补充交易建议
+        suggestion = stock_context.get('suggestion', {})
+        if suggestion:
+            buy_price = suggestion.get('buy_price', {})
+            take_profit = suggestion.get('take_profit', {})
+            base_context += f"""
+## 交易参考
+- 建议操作：{suggestion.get('action', '未知')}
+- 买入区间：¥{buy_price.get('low', 0)} - ¥{buy_price.get('high', 0)}
+- 止损价：¥{suggestion.get('stop_loss', 0)}
+- 目标价：¥{take_profit.get('target1', 0)} / ¥{take_profit.get('target2', 0)}
+- 风险等级：{suggestion.get('risk_level', '未知')}
+"""
+
     reasons = stock_context.get('reasons', [])
     if reasons:
         reasons_text = "\n".join([f"- {r}" for r in reasons[:5]])

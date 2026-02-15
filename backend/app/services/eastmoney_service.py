@@ -114,7 +114,7 @@ async def get_stock_realtime(code: str) -> Optional[dict]:
         dict with price, change, etc.
     """
     market = _get_market_code(code)
-    url = f'https://push2.eastmoney.com/api/qt/stock/get?secid={market}.{code}&fields=f58,f43,f44,f45,f46,f47,f48,f60,f170,f116'
+    url = f'https://push2.eastmoney.com/api/qt/stock/get?secid={market}.{code}&fields=f58,f43,f44,f45,f46,f47,f48,f60,f170,f116,f100'
 
     client = get_client()
     for retry in range(MAX_RETRIES):
@@ -141,8 +141,10 @@ async def get_stock_realtime(code: str) -> Optional[dict]:
             change = d.get('f170', 0) / 100 if d.get('f170') else 0  # 涨跌幅百分比
             market_cap = d.get('f116', 0) / 100000000 if d.get('f116') else 0  # 转为亿
 
-            # 获取行业信息
+            # 获取行业信息：优先用 API 返回的 f100，其次用预定义列表
             info = STOCK_INFO.get(code, {"name": d.get('f58', code), "industry": ""})
+            api_industry = d.get('f100', '')
+            industry = api_industry if api_industry and api_industry != '-' else info.get("industry", "")
 
             return {
                 "code": code,
@@ -157,7 +159,7 @@ async def get_stock_realtime(code: str) -> Optional[dict]:
                 "amount": amount,
                 "turnover": 0,
                 "market_cap": round(market_cap, 2),
-                "industry": info.get("industry", ""),
+                "industry": industry,
             }
 
         except Exception as e:
