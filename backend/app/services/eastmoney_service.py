@@ -69,6 +69,33 @@ STOCK_LIST = [
 # 构建股票代码到信息的映射
 STOCK_INFO = {code: {"name": name, "industry": industry} for code, name, industry in STOCK_LIST}
 
+# 行业信息缓存（运行期间持久化，避免重复请求）
+_industry_cache: Dict[str, str] = {}
+
+
+async def _fetch_industry_from_f10(code: str) -> str:
+    """从东方财富 F10 公司概况接口获取行业（备用方案）"""
+    if code in _industry_cache:
+        return _industry_cache[code]
+
+    market_prefix = "SH" if _get_market_code(code) == '1' else "SZ"
+    url = f"https://emweb.securities.eastmoney.com/pc_hsf10/CompanySurvey/CompanySurveyAjax?code={market_prefix}{code}"
+
+    try:
+        client = get_client()
+        resp = await client.get(url, timeout=5)
+        data = resp.json()
+        jbzl = data.get("jbzl", {})
+        # 优先用申万行业(sshy)，其次用证监会行业(sszjhhy)
+        industry = jbzl.get("sshy", "") or jbzl.get("sszjhhy", "")
+        if industry and industry != "--":
+            _industry_cache[code] = industry
+            return industry
+    except Exception as e:
+        print(f"[EastMoney] F10 行业查询失败 {code}: {e}")
+
+    return ""
+
 
 def _get_market_code(code: str) -> str:
     """
@@ -141,10 +168,12 @@ async def get_stock_realtime(code: str) -> Optional[dict]:
             change = d.get('f170', 0) / 100 if d.get('f170') else 0  # 涨跌幅百分比
             market_cap = d.get('f116', 0) / 100000000 if d.get('f116') else 0  # 转为亿
 
-            # 获取行业信息：优先用 API 返回的 f100，其次用预定义列表
+            # 获取行业信息：优先 API f100 > 预定义列表 > F10 公司概况
             info = STOCK_INFO.get(code, {"name": d.get('f58', code), "industry": ""})
             api_industry = d.get('f100', '')
             industry = api_industry if api_industry and api_industry != '-' else info.get("industry", "")
+            if not industry:
+                industry = await _fetch_industry_from_f10(code)
 
             return {
                 "code": code,
