@@ -247,82 +247,100 @@ async def generate_daily_recommendations(top_n: int = 10) -> list[dict]:
     """
     生成每日推荐
 
-    Args:
-        top_n: 推荐数量
+    采用两轮筛选：
+    1. 快速技术分析所有股票（不调AI），按综合分排序
+    2. 对 top 候选者补充 AI 基本面分析
 
-    Returns:
-        list of recommended stocks
+    选股规则（宽松分层）：
+    - Tier 1: 策略信号 + score >= 50  → 综合分 +5 奖励
+    - Tier 2: score >= 55（仅靠评分也能入选）
+    - 保底: 始终返回 top_n（按评分降序）
     """
     try:
-        # 使用东方财富预定义的股票列表（约60只主流股票）
-        # 不再依赖 AKShare，避免网络连接问题
         from app.services.eastmoney_service import STOCK_LIST
 
-        recommendations = []
-
+        # ---- 第一轮：快速技术分析全部股票 ----
+        all_analyzed = []
         for code, name, industry in STOCK_LIST:
             try:
                 analysis = await analyze_stock(code)
-                if analysis is None:
+                if analysis is None or analysis["score"] <= 0:
                     continue
 
-                # 检查是否符合至少一个策略
                 strategies = analysis["strategies"]
-                if not any(strategies.values()):
-                    continue
-
-                # 评分 > 60 才推荐
-                if analysis["score"] < 60:
-                    continue
-
-                # 获取 AI 基本面分析
-                ai_analysis = None
-                try:
-                    ai_analysis = await get_full_ai_analysis(
-                        name=analysis["name"],
-                        code=analysis["code"],
-                        industry=analysis["industry"],
-                        price=analysis["price"],
-                        change=analysis["change"],
-                        market_cap=analysis.get("market_cap", 0),
-                        score=analysis["score"],
-                        indicators=analysis.get("indicators", {}),
-                        suggestion=analysis["suggestion"],
-                    )
-                    print(f"[AI] 获取 {analysis['name']} AI分析成功")
-                except Exception as ai_err:
-                    print(f"[AI] 获取 {analysis['name']} AI分析失败: {ai_err}")
-
-                recommendations.append({
-                    "code": analysis["code"],
-                    "name": analysis["name"],
-                    "industry": analysis["industry"],
-                    "price": analysis["price"],
-                    "change": analysis["change"],
-                    "score": analysis["score"],
-                    "buy_price_low": analysis["suggestion"]["buy_price_low"],
-                    "buy_price_high": analysis["suggestion"]["buy_price_high"],
-                    "stop_loss": analysis["suggestion"]["stop_loss"],
-                    "take_profit_1": analysis["suggestion"]["take_profit_1"],
-                    "take_profit_2": analysis["suggestion"]["take_profit_2"],
-                    "holding_days": analysis["suggestion"]["holding_days"],
-                    "position_ratio": analysis["suggestion"]["position"],
-                    "risk_level": analysis["suggestion"]["risk_level"],
-                    "reasons": analysis["reasons"],
-                    "ai_analysis": ai_analysis,  # 新增: AI 基本面分析
-                })
-
-                # 找到足够数量就停止
-                if len(recommendations) >= top_n * 2:
-                    break
-
+                has_signal = any(strategies.values())
+                # 有策略信号的加 5 分奖励（排序用）
+                sort_score = analysis["score"] + (5 if has_signal else 0)
+                analysis["_sort_score"] = sort_score
+                analysis["_has_signal"] = has_signal
+                all_analyzed.append(analysis)
             except Exception as e:
                 print(f"Error analyzing {code}: {e}")
                 continue
 
-        # 按评分排序，取 top N
-        recommendations.sort(key=lambda x: x["score"], reverse=True)
-        return recommendations[:top_n]
+        if not all_analyzed:
+            return []
+
+        # 按综合排序分降序
+        all_analyzed.sort(key=lambda x: x["_sort_score"], reverse=True)
+
+        # 候选池：score >= 50 的都可以推荐，最多取 top_n
+        candidates = [a for a in all_analyzed if a["score"] >= 50]
+
+        # 保底：如果候选不足 top_n，用纯评分补齐
+        if len(candidates) < top_n:
+            existing_codes = {c["code"] for c in candidates}
+            for a in all_analyzed:
+                if a["code"] not in existing_codes:
+                    candidates.append(a)
+                if len(candidates) >= top_n:
+                    break
+
+        # 取 top_n
+        candidates = candidates[:top_n]
+
+        print(f"[Recommend] 共分析 {len(all_analyzed)} 只, 候选 {len(candidates)} 只")
+
+        # ---- 第二轮：为候选者补充 AI 分析 ----
+        recommendations = []
+        for analysis in candidates:
+            ai_analysis = None
+            try:
+                ai_analysis = await get_full_ai_analysis(
+                    name=analysis["name"],
+                    code=analysis["code"],
+                    industry=analysis["industry"],
+                    price=analysis["price"],
+                    change=analysis["change"],
+                    market_cap=analysis.get("market_cap", 0),
+                    score=analysis["score"],
+                    indicators=analysis.get("indicators", {}),
+                    suggestion=analysis["suggestion"],
+                )
+                print(f"[AI] 获取 {analysis['name']} AI分析成功")
+            except Exception as ai_err:
+                print(f"[AI] 获取 {analysis['name']} AI分析失败: {ai_err}")
+
+            recommendations.append({
+                "code": analysis["code"],
+                "name": analysis["name"],
+                "industry": analysis["industry"],
+                "price": analysis["price"],
+                "change": analysis["change"],
+                "score": analysis["score"],
+                "buy_price_low": analysis["suggestion"]["buy_price_low"],
+                "buy_price_high": analysis["suggestion"]["buy_price_high"],
+                "stop_loss": analysis["suggestion"]["stop_loss"],
+                "take_profit_1": analysis["suggestion"]["take_profit_1"],
+                "take_profit_2": analysis["suggestion"]["take_profit_2"],
+                "holding_days": analysis["suggestion"]["holding_days"],
+                "position_ratio": analysis["suggestion"]["position"],
+                "risk_level": analysis["suggestion"]["risk_level"],
+                "reasons": analysis["reasons"],
+                "ai_analysis": ai_analysis,
+            })
+
+        return recommendations
 
     except Exception as e:
         print(f"Error generating recommendations: {e}")
