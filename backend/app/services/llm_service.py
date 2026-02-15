@@ -226,9 +226,10 @@ async def call_llm(
         "max_tokens": max_tokens,
     }
 
-    # GLM-5 启用思考模式：分离推理过程和最终回答
+    # GLM-5 倾向输出完整推理链，增大 token 并在 system prompt 中约束
     if model_id == "glm-5":
-        data["thinking"] = {"type": "enabled"}
+        data["max_tokens"] = max(max_tokens, 2048)
+        data["messages"][0]["content"] += "\n\n重要：请直接给出结论性的回答，不要展示你的推理步骤、分析过程或思考链。"
 
     # 最多重试2次（速率限制时等待后重试）
     for attempt in range(3):
