@@ -24,6 +24,7 @@ export default function StockChatPanel({ code, stockName }: StockChatPanelProps)
   const [remainingQuota, setRemainingQuota] = useState(10);
   const [latestAnswer, setLatestAnswer] = useState<ChatResponse | null>(null);
   const [showAllHistory, setShowAllHistory] = useState(false);
+  const [expandedHistoryIds, setExpandedHistoryIds] = useState<Set<string>>(new Set());
   const [availableModels, setAvailableModels] = useState<AIModel[]>([]);
   const [selectedModel, setSelectedModel] = useState('');
   const answerRef = useRef<HTMLDivElement>(null);
@@ -99,6 +100,18 @@ export default function StockChatPanel({ code, stockName }: StockChatPanelProps)
   };
 
   const displayHistory = showAllHistory ? history : history.slice(0, 3);
+
+  const toggleHistoryExpand = (id: string) => {
+    setExpandedHistoryIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
 
   return (
     <section className="bg-white rounded-xl shadow-sm border border-gray-100 mb-4 overflow-hidden">
@@ -224,19 +237,31 @@ export default function StockChatPanel({ code, stockName }: StockChatPanelProps)
           {history.length > 0 && (
             <div className="space-y-2">
               <p className="text-xs text-gray-500 font-medium">历史问答</p>
-              {displayHistory.map((item) => (
-                <div key={item.id} className="border border-gray-100 rounded-lg p-3">
-                  <p className="text-xs text-gray-500 font-medium mb-1">
-                    Q: {item.question}
-                  </p>
-                  <p className="text-sm text-gray-700 whitespace-pre-line leading-relaxed line-clamp-3">
-                    {item.answer}
-                  </p>
-                  <p className="text-xs text-gray-400 mt-1">
-                    {new Date(item.created_at).toLocaleString('zh-CN')}
-                  </p>
-                </div>
-              ))}
+              {displayHistory.map((item) => {
+                const isExpanded = expandedHistoryIds.has(item.id);
+                return (
+                  <div
+                    key={item.id}
+                    className="border border-gray-100 rounded-lg p-3 cursor-pointer hover:bg-gray-50 transition-colors"
+                    onClick={() => toggleHistoryExpand(item.id)}
+                  >
+                    <p className="text-xs text-gray-500 font-medium mb-1">
+                      Q: {item.question}
+                    </p>
+                    <p className={`text-sm text-gray-700 whitespace-pre-line leading-relaxed ${isExpanded ? '' : 'line-clamp-3'}`}>
+                      {item.answer}
+                    </p>
+                    <div className="flex justify-between items-center mt-1">
+                      <p className="text-xs text-gray-400">
+                        {new Date(item.created_at).toLocaleString('zh-CN')}
+                      </p>
+                      <span className="text-xs text-blue-500">
+                        {isExpanded ? '收起' : '展开全文'}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
               {history.length > 3 && !showAllHistory && (
                 <button
                   onClick={() => setShowAllHistory(true)}

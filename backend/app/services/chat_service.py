@@ -23,8 +23,9 @@ CHAT_SYSTEM_PROMPT = """你是一位专业的A股分析师助手。用户正在�
 2. 使用分点列出关键信息，必要时用小标题组织内容
 3. 充分利用提供的所有数据（行业、技术面、基本面、交易参考等）进行综合分析
 4. 不要编造不存在的数据，如果某些数据没有提供，请诚实说明
-5. 末尾加上简短的风险提示
-6. 禁止给出明确的买入/卖出建议，只提供分析参考"""
+5. 末尾加一句简短风险提示
+6. 禁止给出明确的买入/卖出建议，只提供分析参考
+7. 严格控制回答在500字以内，言简意赅，突出重点"""
 
 
 def build_chat_prompt(
@@ -318,7 +319,7 @@ async def call_chat_llm(system_prompt: str, user_prompt: str, model_id: Optional
     content, error_type = await call_llm(
         system_prompt, user_prompt,
         model_id=model_id,
-        max_tokens=1500,
+        max_tokens=800,
     )
 
     if error_type:
