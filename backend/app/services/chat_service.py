@@ -434,6 +434,28 @@ async def ask_question(
             "change_percent": realtime.get("change", 0) if realtime else 0,
         }
 
+    # 3.1 如果 score 为 0，实时计算技术评分
+    if not stock_context.get("score"):
+        try:
+            from app.services import eastmoney_service, indicator_service
+            df = await eastmoney_service.get_history(code, days=60)
+            if df is not None and not df.empty:
+                realtime_data = await eastmoney_service.get_realtime(code)
+                current_price = realtime_data["price"] if realtime_data else stock_context.get("price", 0)
+                indicators = indicator_service.calculate_indicators(df)
+                suggestion = indicator_service.calculate_trading_suggestion(df, indicators, current_price=current_price)
+                score = indicator_service.calculate_score(indicators, suggestion)
+                stock_context["score"] = score
+                if not stock_context.get("indicators"):
+                    stock_context["indicators"] = indicators
+                if not stock_context.get("suggestion"):
+                    stock_context["suggestion"] = suggestion
+                reasons = indicator_service.generate_reasons(indicators)
+                if not stock_context.get("reasons"):
+                    stock_context["reasons"] = reasons
+        except Exception as e:
+            print(f"[Chat] Error computing score for {code}: {e}")
+
     # 3.5 根据模板类型，实时获取补充数据
     if template == "news":
         from app.services import news_service
