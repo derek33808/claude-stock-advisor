@@ -226,6 +226,10 @@ async def call_llm(
         "max_tokens": max_tokens,
     }
 
+    # GLM-5 启用思考模式：分离推理过程和最终回答
+    if model_id == "glm-5":
+        data["thinking"] = {"type": "enabled"}
+
     # 最多重试2次（速率限制时等待后重试）
     for attempt in range(3):
         content, error_type = await _call_llm_once(config, api_key, model_id, data)
