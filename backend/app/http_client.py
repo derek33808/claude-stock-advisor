@@ -38,5 +38,5 @@ async def close_client():
     """关闭全局 AsyncClient（应用关闭时调用）"""
     global _client
     if _client and not _client.is_closed:
-        await _client.close()
+        await _client.aclose()
         _client = None

@@ -226,6 +226,11 @@ def build_chat_prompt(
 """
 
     reasons = stock_context.get('reasons', [])
+    if isinstance(reasons, dict):
+        # Flatten dict format from generate_reasons()
+        reasons = [f"技术面: {r}" for r in reasons.get("technical", [])] + \
+                  [f"基本面: {r}" for r in reasons.get("fundamental", [])] + \
+                  [f"资金面: {r}" for r in reasons.get("capital", [])]
     if reasons:
         reasons_text = "\n".join([f"- {r}" for r in reasons[:5]])
         base_context += f"""
@@ -461,9 +466,17 @@ async def ask_question(
                     stock_context["indicators"] = indicators
                 if not stock_context.get("suggestion"):
                     stock_context["suggestion"] = suggestion
-                reasons = indicator_service.generate_reasons(indicators)
+                reasons_raw = indicator_service.generate_reasons(indicators)
                 if not stock_context.get("reasons"):
-                    stock_context["reasons"] = reasons
+                    # Flatten dict to list (same format as _do_full_analysis)
+                    flat_reasons = []
+                    for r in reasons_raw.get("technical", []):
+                        flat_reasons.append(f"技术面: {r}")
+                    for r in reasons_raw.get("fundamental", []):
+                        flat_reasons.append(f"基本面: {r}")
+                    for r in reasons_raw.get("capital", []):
+                        flat_reasons.append(f"资金面: {r}")
+                    stock_context["reasons"] = flat_reasons or ["数据分析中"]
         except Exception as e:
             print(f"[Chat] Error computing score for {code}: {e}")
 
