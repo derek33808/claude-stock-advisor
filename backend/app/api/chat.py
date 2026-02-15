@@ -2,6 +2,7 @@
 AI 股票问答 API
 """
 
+import traceback
 from fastapi import APIRouter, Query
 from app.services import chat_service
 from app.services.llm_service import get_available_models, DEFAULT_MODEL
@@ -57,8 +58,13 @@ async def stock_chat(
     if len(question) > 200:
         question = question[:200]
 
-    result = await chat_service.ask_question(code, user_id, question, template, model_id=model_id)
-    return result
+    try:
+        result = await chat_service.ask_question(code, user_id, question, template, model_id=model_id)
+        return result
+    except Exception as e:
+        tb = traceback.format_exc()
+        print(f"[Chat API] Error: {e}\n{tb}")
+        return {"error": True, "message": f"服务器错误: {str(e)}"}
 
 
 @router.get("/stock/{code}/chat/history")
