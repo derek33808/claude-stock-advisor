@@ -54,6 +54,34 @@ export function isBackendPossiblyAsleep(): boolean {
 }
 
 /**
+ * 评分维度拆分
+ */
+export interface ScoreDimensions {
+  trend_score: number;      // 趋势得分 0-100
+  momentum_score: number;   // 动量得分 0-100
+  volatility_score: number; // 波动得分 0-100 (高分=低波动=安全)
+  volume_score: number;     // 量能得分 0-100
+  composite: number;        // 加权综合分 0-100
+  // AI补充维度（有AI分析时存在）
+  valuation_score?: number; // 估值得分 0-100
+  quality_score?: number;   // 质量得分 0-100
+  sentiment_score?: number; // 情绪得分 0-100
+}
+
+/**
+ * 价格预测
+ */
+export interface PricePrediction {
+  '5d_target_high': number;
+  '5d_target_low': number;
+  '5d_most_likely': number;
+  probability_up: number;     // 涨概率 %
+  probability_down: number;   // 跌概率 %
+  probability_flat: number;   // 平概率 %
+  expected_return_pct: number; // 预期收益率 %
+}
+
+/**
  * 股票分析结果
  */
 export interface StockAnalysis {
@@ -89,6 +117,9 @@ export interface StockAnalysis {
   };
   reasons: string[];
   score: number;
+  score_details?: ScoreDimensions;
+  price_prediction?: PricePrediction;
+  catalysts?: string[];
   summary?: string;
 }
 
@@ -249,7 +280,8 @@ export async function getStockAnalysis(code: string, refresh: boolean = false): 
 
   // 请求后端（后端有 L1 内存 + L2 Supabase 缓存）
   const refreshParam = refresh ? '?refresh=true' : '';
-  const data = await apiRequest<StockAnalysis>(`/stock/${code}${refreshParam}`, undefined, 30000, 1);
+  // 不重试：后端已有 60s 超时 + 降级机制，前端重试只会让用户等更久
+  const data = await apiRequest<StockAnalysis>(`/stock/${code}${refreshParam}`, undefined, 65000, 0);
 
   // 存入前端缓存
   stockCache.set(code, { data, timestamp: Date.now() });

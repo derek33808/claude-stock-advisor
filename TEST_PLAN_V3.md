@@ -1658,9 +1658,9 @@ if __name__ == "__main__":
 ## 9. 附录
 
 ### 9.1 参考文档
-- [DESIGN_V3_CACHE_AND_QA.md](/Users/yuqiang/Documents/macbookair_files/AI_path/projects/software/stock-advisor/DESIGN_V3_CACHE_AND_QA.md) - v3.0 设计文档
-- [TEST_CASES.md](/Users/yuqiang/Documents/macbookair_files/AI_path/projects/software/stock-advisor/TEST_CASES.md) - v1.0/v2.0 测试用例
-- [test_e2e_v2.py](/Users/yuqiang/Documents/macbookair_files/AI_path/projects/software/stock-advisor/backend/test_e2e_v2.py) - v2.0 E2E 测试脚本
+- [DESIGN_V3_CACHE_AND_QA.md](/Users/derek/Documents/macbookair_files/AI_path/projects/software/stock-advisor/DESIGN_V3_CACHE_AND_QA.md) - v3.0 设计文档
+- [TEST_CASES.md](/Users/derek/Documents/macbookair_files/AI_path/projects/software/stock-advisor/TEST_CASES.md) - v1.0/v2.0 测试用例
+- [test_e2e_v2.py](/Users/derek/Documents/macbookair_files/AI_path/projects/software/stock-advisor/backend/test_e2e_v2.py) - v2.0 E2E 测试脚本
 
 ### 9.2 测试术语
 - **P0**: 最高优先级，阻塞发布

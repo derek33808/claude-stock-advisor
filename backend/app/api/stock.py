@@ -105,7 +105,18 @@ async def get_stock_analysis(
             return response
 
     # ===== L3: 完整分析（缓存未命中或强制刷新） =====
-    return await _do_full_analysis(code, ai_analysis)
+    # 60s 总超时保护：超时则降级返回纯技术分析（无AI）
+    try:
+        return await asyncio.wait_for(_do_full_analysis(code, ai_analysis), timeout=60.0)
+    except asyncio.TimeoutError:
+        print(f"[Stock] {code} 完整分析超时(60s)，降级到纯技术分析")
+        try:
+            return await asyncio.wait_for(
+                _do_full_analysis(code, ai_analysis=False, skip_ai_summary=True),
+                timeout=15.0,
+            )
+        except asyncio.TimeoutError:
+            raise HTTPException(status_code=504, detail=f"股票 {code} 分析超时，请稍后重试")
 
 
 async def _do_full_analysis(code: str, ai_analysis: bool = True, skip_ai_summary: bool = False) -> dict:
@@ -139,6 +150,12 @@ async def _do_full_analysis(code: str, ai_analysis: bool = True, skip_ai_summary
     suggestion = indicator_service.calculate_trading_suggestion(df, indicators, current_price=realtime["price"])
     reasons_raw = indicator_service.generate_reasons(indicators)
     score = indicator_service.calculate_score(indicators, suggestion)
+
+    # 多维度评分 + 价格预测
+    score_details = indicator_service.calculate_score_detailed(
+        indicators, suggestion, current_price=realtime["price"], df=df)
+    price_prediction = indicator_service.calculate_price_prediction(
+        indicators, current_price=realtime["price"], df=df)
 
     # 转换指标格式
     macd = indicators.get("macd", {})
@@ -302,6 +319,8 @@ async def _do_full_analysis(code: str, ai_analysis: bool = True, skip_ai_summary
         "suggestion": formatted_suggestion,
         "reasons": reasons,
         "score": score,
+        "score_details": score_details,
+        "price_prediction": price_prediction,
         "summary": summary,
     }
 
@@ -316,6 +335,39 @@ async def _do_full_analysis(code: str, ai_analysis: bool = True, skip_ai_summary
             ma_trend=ma.get("trend", "震荡"),
         )
         response["ai_ranking_score"] = ai_ranking_score
+
+        # 合并 AI 维度评分（AI 提供估值/质量/情绪维度）
+        ai_rec = ai_result.get("ai_recommendation", {})
+        ai_dims = ai_rec.get("dimensions", {})
+        if ai_dims:
+            response["score_details"]["valuation_score"] = ai_dims.get("valuation_score", 50)
+            response["score_details"]["quality_score"] = ai_dims.get("quality_score", 50)
+            response["score_details"]["sentiment_score"] = ai_dims.get("sentiment_score", 50)
+
+        # 合并 AI 价格预测（技术 40% + AI 60% 加权）
+        ai_pred = ai_rec.get("price_prediction", {})
+        if ai_pred and ai_pred.get("5d_target_high"):
+            tech_pred = response["price_prediction"]
+            merged = {}
+            for key in ["5d_target_high", "5d_target_low", "5d_most_likely"]:
+                tech_val = tech_pred.get(key, 0)
+                ai_val = ai_pred.get(key, 0)
+                if tech_val and ai_val:
+                    merged[key] = round(tech_val * 0.4 + ai_val * 0.6, 2)
+                else:
+                    merged[key] = ai_val or tech_val
+            for key in ["probability_up", "probability_down", "probability_flat"]:
+                tech_val = tech_pred.get(key, 33)
+                ai_val = ai_pred.get(key, 33)
+                merged[key] = int(tech_val * 0.4 + ai_val * 0.6)
+            merged["expected_return_pct"] = round(
+                tech_pred.get("expected_return_pct", 0) * 0.4 +
+                ai_pred.get("expected_return_pct", 0) * 0.6, 2)
+            response["price_prediction"] = merged
+
+        # AI catalysts
+        if ai_rec.get("catalysts"):
+            response["catalysts"] = ai_rec["catalysts"]
 
     # ===== 写入所有缓存层 =====
 
@@ -398,37 +450,82 @@ async def get_batch_stock_analyses(
         else:
             uncached_codes.append(code)
 
-    # 3. 未缓存的股票：直接用行情数据生成轻量响应（快速返回）
-    #    完整分析留给用户点击详情页时再做，避免批量接口超时
-    for stock_code in uncached_codes:
+    # 3. 未缓存的股票：快速计算技术评分（不调 AI，~100ms/只）
+    #    使用 Semaphore 控制并发，保持 batch 在 15s 内
+    batch_semaphore = asyncio.Semaphore(3)
+
+    async def _quick_score(stock_code: str) -> dict:
+        """快速技术评分（无AI调用）"""
         quote = batch_quotes.get(stock_code)
-        if quote:
-            results.append({
-                "code": stock_code,
-                "name": quote.get("name", stock_code),
-                "industry": quote.get("industry", ""),
-                "price": quote.get("price", 0),
-                "change": quote.get("change", 0),
-                "open": quote.get("open", 0),
-                "high": quote.get("high", 0),
-                "low": quote.get("low", 0),
-                "prev_close": quote.get("prev_close", 0),
-                "volume": quote.get("volume", 0),
-                "amount": quote.get("amount", 0),
-                "market_cap": quote.get("market_cap", 0),
-                "score": 0,
-                "indicators": {},
-                "suggestion": {
-                    "action": "点击查看详情",
-                    "buy_price": {"low": 0, "high": 0},
-                    "stop_loss": 0,
-                    "take_profit": {"target1": 0, "target2": 0},
-                    "holding_days": "-",
-                    "position_ratio": "-",
-                    "risk_level": "medium",
-                },
-                "reasons": [],
-            })
+        if not quote:
+            return None
+
+        base_item = {
+            "code": stock_code,
+            "name": quote.get("name", stock_code),
+            "industry": quote.get("industry", ""),
+            "price": quote.get("price", 0),
+            "change": quote.get("change", 0),
+            "open": quote.get("open", 0),
+            "high": quote.get("high", 0),
+            "low": quote.get("low", 0),
+            "prev_close": quote.get("prev_close", 0),
+            "volume": quote.get("volume", 0),
+            "amount": quote.get("amount", 0),
+            "market_cap": quote.get("market_cap", 0),
+        }
+
+        async with batch_semaphore:
+            try:
+                df = await eastmoney_service.get_history(stock_code, days=60)
+                if df is not None and not df.empty:
+                    indicators = indicator_service.calculate_indicators(df)
+                    suggestion = indicator_service.calculate_trading_suggestion(
+                        df, indicators, current_price=quote.get("price", 0))
+                    score = indicator_service.calculate_score(indicators, suggestion)
+                    score_details = indicator_service.calculate_score_detailed(
+                        indicators, suggestion, current_price=quote.get("price", 0), df=df)
+
+                    base_item["score"] = score
+                    base_item["score_details"] = score_details
+                    base_item["indicators"] = {}  # 轻量响应不含完整指标
+                    base_item["suggestion"] = {
+                        "action": suggestion.get("action", "观望"),
+                        "buy_price": {"low": suggestion.get("buy_price_low", 0), "high": suggestion.get("buy_price_high", 0)},
+                        "stop_loss": suggestion.get("stop_loss", 0),
+                        "take_profit": {"target1": suggestion.get("take_profit_1", 0), "target2": suggestion.get("take_profit_2", 0)},
+                        "holding_days": suggestion.get("holding_days", "-"),
+                        "position_ratio": suggestion.get("position", "-"),
+                        "risk_level": suggestion.get("risk_level", "medium"),
+                    }
+                    base_item["reasons"] = []
+                    return base_item
+            except Exception as e:
+                print(f"[Batch] Quick score failed for {stock_code}: {e}")
+
+        # 回退：无评分的轻量响应
+        base_item["score"] = 0
+        base_item["indicators"] = {}
+        base_item["suggestion"] = {
+            "action": "点击查看详情",
+            "buy_price": {"low": 0, "high": 0},
+            "stop_loss": 0,
+            "take_profit": {"target1": 0, "target2": 0},
+            "holding_days": "-",
+            "position_ratio": "-",
+            "risk_level": "medium",
+        }
+        base_item["reasons"] = []
+        return base_item
+
+    if uncached_codes:
+        quick_results = await asyncio.gather(
+            *[_quick_score(sc) for sc in uncached_codes],
+            return_exceptions=True,
+        )
+        for qr in quick_results:
+            if isinstance(qr, dict):
+                results.append(qr)
 
     return {
         "count": len(results),

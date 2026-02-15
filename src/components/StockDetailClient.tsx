@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
-import { getStockAnalysis, StockAnalysis, isBackendPossiblyAsleep } from '@/lib/api';
+import { getStockAnalysis, StockAnalysis, ScoreDimensions, PricePrediction, isBackendPossiblyAsleep } from '@/lib/api';
 import Disclaimer from './Disclaimer';
 import WatchlistButton from './WatchlistButton';
 import ProgressBar from './ProgressBar';
@@ -86,7 +86,7 @@ export default function StockDetailClient({ code }: StockDetailClientProps) {
           <p className="text-xs text-gray-400 mt-2">
             {isColdStart
               ? '后端服务冷启动中，可能需要 30-60 秒'
-              : '首次加载可能需要 10-30 秒'}
+              : '首次加载含AI分析，可能需要 15-60 秒'}
           </p>
           {/* 真实进度条 */}
           <div className="mt-4 w-48 mx-auto">
@@ -220,6 +220,19 @@ export default function StockDetailClient({ code }: StockDetailClientProps) {
           </div>
         </div>
       </header>
+
+      {/* 评分维度 */}
+      {stock.score_details && (
+        <section className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-4">
+          <h2 className="text-lg font-semibold text-gray-800 mb-3">评分维度</h2>
+          <ScoreDimensionBars details={stock.score_details} />
+        </section>
+      )}
+
+      {/* AI 价格预测 */}
+      {stock.price_prediction && (
+        <PricePredictionCard prediction={stock.price_prediction} currentPrice={stock.price} catalysts={stock.catalysts} />
+      )}
 
       {/* 交易建议 */}
       <section className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-4">
@@ -357,5 +370,127 @@ function TradingItem({
         {value}
       </div>
     </div>
+  );
+}
+
+// 评分维度条形图
+function ScoreDimensionBars({ details }: { details: ScoreDimensions }) {
+  const dimensions: Array<{ key: string; label: string; value: number; color: string }> = [
+    { key: 'trend', label: '趋势', value: details.trend_score, color: 'bg-blue-500' },
+    { key: 'momentum', label: '动量', value: details.momentum_score, color: 'bg-purple-500' },
+    { key: 'volatility', label: '波动', value: details.volatility_score, color: 'bg-amber-500' },
+    { key: 'volume', label: '量能', value: details.volume_score, color: 'bg-cyan-500' },
+  ];
+
+  // AI 补充维度
+  if (details.valuation_score !== undefined) {
+    dimensions.push({ key: 'valuation', label: '估值', value: details.valuation_score, color: 'bg-emerald-500' });
+  }
+  if (details.quality_score !== undefined) {
+    dimensions.push({ key: 'quality', label: '质量', value: details.quality_score, color: 'bg-indigo-500' });
+  }
+  if (details.sentiment_score !== undefined) {
+    dimensions.push({ key: 'sentiment', label: '情绪', value: details.sentiment_score, color: 'bg-rose-500' });
+  }
+
+  const getScoreColor = (v: number) => {
+    if (v >= 70) return 'text-green-600';
+    if (v >= 50) return 'text-yellow-600';
+    return 'text-red-500';
+  };
+
+  return (
+    <div className="space-y-2.5">
+      {dimensions.map(d => (
+        <div key={d.key} className="flex items-center gap-3">
+          <span className="text-xs text-gray-500 w-8 text-right">{d.label}</span>
+          <div className="flex-1 bg-gray-100 rounded-full h-2.5 overflow-hidden">
+            <div
+              className={`h-full rounded-full ${d.color} transition-all duration-500`}
+              style={{ width: `${Math.max(2, d.value)}%` }}
+            />
+          </div>
+          <span className={`text-xs font-medium w-8 ${getScoreColor(d.value)}`}>{d.value}</span>
+        </div>
+      ))}
+      <div className="flex items-center justify-between pt-1 border-t border-gray-100">
+        <span className="text-xs text-gray-500">综合得分</span>
+        <span className={`text-sm font-bold ${getScoreColor(details.composite)}`}>{details.composite}</span>
+      </div>
+    </div>
+  );
+}
+
+// 价格预测卡片
+function PricePredictionCard({
+  prediction,
+  currentPrice,
+  catalysts,
+}: {
+  prediction: PricePrediction;
+  currentPrice: number;
+  catalysts?: string[];
+}) {
+  const isUp = prediction.probability_up > prediction.probability_down;
+  const mainColor = isUp ? 'text-green-600' : prediction.probability_down > 50 ? 'text-red-500' : 'text-yellow-600';
+  const bgColor = isUp ? 'from-green-50 to-emerald-50' : prediction.probability_down > 50 ? 'from-red-50 to-pink-50' : 'from-yellow-50 to-amber-50';
+  const borderColor = isUp ? 'border-green-100' : prediction.probability_down > 50 ? 'border-red-100' : 'border-yellow-100';
+
+  return (
+    <section className={`bg-gradient-to-br ${bgColor} rounded-xl shadow-sm border ${borderColor} p-4 mb-4`}>
+      <h2 className="text-lg font-semibold text-gray-800 mb-3">AI 价格预测 (5日)</h2>
+
+      {/* 目标价区间 */}
+      <div className="bg-white rounded-lg p-3 mb-3">
+        <div className="flex justify-between items-center mb-2">
+          <span className="text-xs text-gray-500">目标价区间</span>
+          <span className={`text-sm font-bold ${mainColor}`}>
+            ¥{prediction['5d_target_low'].toFixed(2)} - ¥{prediction['5d_target_high'].toFixed(2)}
+          </span>
+        </div>
+        <div className="flex justify-between items-center mb-2">
+          <span className="text-xs text-gray-500">最可能价格</span>
+          <span className={`text-sm font-bold ${mainColor}`}>
+            ¥{prediction['5d_most_likely'].toFixed(2)}
+          </span>
+        </div>
+        <div className="flex justify-between items-center">
+          <span className="text-xs text-gray-500">预期收益率</span>
+          <span className={`text-sm font-bold ${prediction.expected_return_pct >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+            {prediction.expected_return_pct >= 0 ? '+' : ''}{prediction.expected_return_pct.toFixed(2)}%
+          </span>
+        </div>
+      </div>
+
+      {/* 涨跌概率 */}
+      <div className="bg-white rounded-lg p-3 mb-3">
+        <div className="text-xs text-gray-500 mb-2">涨跌概率</div>
+        <div className="flex h-4 rounded-full overflow-hidden">
+          <div className="bg-green-500 transition-all" style={{ width: `${prediction.probability_up}%` }} />
+          <div className="bg-gray-300 transition-all" style={{ width: `${prediction.probability_flat}%` }} />
+          <div className="bg-red-400 transition-all" style={{ width: `${prediction.probability_down}%` }} />
+        </div>
+        <div className="flex justify-between text-xs mt-1">
+          <span className="text-green-600">涨 {prediction.probability_up}%</span>
+          <span className="text-gray-400">平 {prediction.probability_flat}%</span>
+          <span className="text-red-500">跌 {prediction.probability_down}%</span>
+        </div>
+      </div>
+
+      {/* 催化因素 */}
+      {catalysts && catalysts.length > 0 && (
+        <div className="bg-white rounded-lg p-3">
+          <div className="text-xs text-gray-500 mb-1.5">核心催化因素</div>
+          <ul className="space-y-1">
+            {catalysts.map((c, i) => (
+              <li key={i} className="text-xs text-gray-600 flex items-start">
+                <span className="text-blue-500 mr-1.5">&#x25CF;</span>
+                {c}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </section>
   );
 }

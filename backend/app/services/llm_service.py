@@ -239,3 +239,100 @@ async def call_llm(
         return content, error_type
 
     return None, "rate_limited"
+
+
+# 降级链：优先用旗舰模型，超时则降级到更快的免费模型
+FALLBACK_CHAINS: Dict[str, List[str]] = {
+    "glm-5": ["glm-5", "glm-4.7-flash", "glm-4-flash"],
+    "glm-4.7": ["glm-4.7", "glm-4.7-flash", "glm-4-flash"],
+    "glm-4.7-flash": ["glm-4.7-flash", "glm-4-flash"],
+    "glm-4-flash": ["glm-4-flash"],
+}
+
+
+async def call_llm_with_fallback(
+    system_prompt: str,
+    user_prompt: str,
+    preferred_model: str = "glm-5",
+    max_tokens: int = 800,
+    overall_timeout: float = 45.0,
+    temperature: float = 0.7,
+) -> Tuple[Optional[str], Optional[str], str]:
+    """
+    调用 LLM，超时自动降级到更快的模型。
+
+    Args:
+        system_prompt: 系统提示词
+        user_prompt: 用户提示词
+        preferred_model: 首选模型
+        max_tokens: 最大生成 token 数
+        overall_timeout: 整体时间预算（秒）
+        temperature: 温度参数
+
+    Returns:
+        Tuple of (content, error_type, actual_model_used)
+    """
+    chain = FALLBACK_CHAINS.get(preferred_model, [preferred_model, "glm-4.7-flash", "glm-4-flash"])
+    deadline = asyncio.get_event_loop().time() + overall_timeout
+
+    for i, model_id in enumerate(chain):
+        remaining = deadline - asyncio.get_event_loop().time()
+        if remaining <= 2:
+            print(f"[LLM-Fallback] 时间预算耗尽，跳过 {model_id}")
+            break
+
+        config = MODEL_REGISTRY.get(model_id)
+        if not config:
+            continue
+
+        api_key = _get_api_key(model_id)
+        if not api_key:
+            continue
+
+        # 为当前模型分配超时：取配置超时和剩余时间的较小值
+        model_timeout = min(config["timeout"], remaining)
+
+        data = {
+            "model": model_id,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+        }
+        if model_id == "glm-5":
+            data["thinking"] = {"type": "enabled"}
+            data["max_tokens"] = max(max_tokens, 2048)
+
+        print(f"[LLM-Fallback] 尝试 {model_id} (timeout={model_timeout:.0f}s, 剩余={remaining:.0f}s)")
+
+        try:
+            # 用 wait_for 强制单模型超时
+            content, error_type = await asyncio.wait_for(
+                _call_llm_once(config, api_key, model_id, data),
+                timeout=model_timeout,
+            )
+
+            if content:
+                if i > 0:
+                    print(f"[LLM-Fallback] 降级到 {model_id} 成功")
+                return content, None, model_id
+
+            # 非超时错误（如认证失败、配额耗尽），尝试下一个模型
+            if error_type in ("auth_failed", "quota_exhausted"):
+                print(f"[LLM-Fallback] {model_id} {error_type}，尝试下一个模型")
+                continue
+            if error_type == "rate_limited":
+                # 速率限制：短暂等待后尝试下一个
+                await asyncio.sleep(1)
+                continue
+
+        except asyncio.TimeoutError:
+            print(f"[LLM-Fallback] {model_id} 超时 ({model_timeout:.0f}s)，降级到下一个")
+            continue
+        except Exception as e:
+            print(f"[LLM-Fallback] {model_id} 异常: {e}")
+            continue
+
+    return None, "timeout", chain[-1] if chain else preferred_model

@@ -515,7 +515,7 @@ Top 10 进入综合分析
 
 ```bash
 # 初始化仓库（如果未初始化）
-cd /Users/yuqiang/Documents/macbookair_files/AI_path/projects/software/stock-advisor
+cd /Users/derek/Documents/macbookair_files/AI_path/projects/software/stock-advisor
 git init
 git branch -M main
 

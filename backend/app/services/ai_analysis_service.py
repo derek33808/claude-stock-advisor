@@ -12,7 +12,7 @@ from datetime import datetime
 from cachetools import TTLCache
 from app.config import get_settings
 from app.http_client import get_client
-from app.services.llm_service import call_llm, DEFAULT_MODEL
+from app.services.llm_service import call_llm, call_llm_with_fallback, DEFAULT_MODEL
 
 # AI 分析结果缓存：同一天同一股票复用（最多100条，TTL 4小时）
 _ai_analysis_cache: TTLCache = TTLCache(maxsize=100, ttl=14400)
@@ -66,24 +66,36 @@ def get_ai_model_status() -> Dict:
 ANALYSIS_MODEL = "glm-5"
 
 
-async def call_glm_api(system_prompt: str, user_prompt: str, max_tokens: int = 800, model_id: Optional[str] = None) -> Tuple[Optional[str], Optional[str]]:
+async def call_glm_api(system_prompt: str, user_prompt: str, max_tokens: int = 800, model_id: Optional[str] = None, use_fallback: bool = True, overall_timeout: float = 45.0) -> Tuple[Optional[str], Optional[str]]:
     """
-    调用大模型 API（统一路由）
+    调用大模型 API（统一路由，支持降级链）
 
     Args:
         system_prompt: 系统提示词
         user_prompt: 用户提示词
         max_tokens: 最大生成 token 数
-        model_id: 模型ID（为空则使用分析专用模型 glm-4-flash）
+        model_id: 模型ID（为空则使用分析专用模型）
+        use_fallback: 是否启用降级链（超时自动切换到更快模型）
+        overall_timeout: 降级链整体超时（秒）
 
     Returns:
         Tuple of (content, error_type)
     """
-    content, error_type = await call_llm(
-        system_prompt, user_prompt,
-        model_id=model_id or ANALYSIS_MODEL,
-        max_tokens=max_tokens,
-    )
+    target_model = model_id or ANALYSIS_MODEL
+
+    if use_fallback:
+        content, error_type, actual_model = await call_llm_with_fallback(
+            system_prompt, user_prompt,
+            preferred_model=target_model,
+            max_tokens=max_tokens,
+            overall_timeout=overall_timeout,
+        )
+    else:
+        content, error_type = await call_llm(
+            system_prompt, user_prompt,
+            model_id=target_model,
+            max_tokens=max_tokens,
+        )
 
     # 更新全局状态
     if error_type:
@@ -93,7 +105,7 @@ async def call_glm_api(system_prompt: str, user_prompt: str, max_tokens: int = 8
             "quota_exhausted": "API 配额已用尽",
             "unavailable": "AI 模型服务暂时不可用",
             "timeout": "AI 模型响应超时",
-            "no_api_key": f"模型 {model_id or DEFAULT_MODEL} 未配置 API Key",
+            "no_api_key": f"模型 {target_model} 未配置 API Key",
         }
         _ai_model_status.set_error(error_type, error_messages.get(error_type, f"未知错误: {error_type}"))
     elif content:
@@ -362,10 +374,31 @@ async def generate_ai_score_and_recommendation(
     "ai_rating": "推荐等级（强烈推荐/推荐/中性/谨慎/回避）",
     "confidence": "置信度（高/中/低）",
     "time_horizon": "建议持有周期",
+    "dimensions": {{
+        "trend_score": 75,
+        "momentum_score": 60,
+        "valuation_score": 80,
+        "quality_score": 70,
+        "sentiment_score": 65
+    }},
+    "price_prediction": {{
+        "5d_target_high": 25.50,
+        "5d_target_low": 23.80,
+        "5d_most_likely": 24.80,
+        "probability_up": 55,
+        "probability_down": 25,
+        "probability_flat": 20,
+        "expected_return_pct": 2.1
+    }},
+    "catalysts": ["近期可能推动股价的催化因素1", "催化因素2"],
     "key_points": ["核心观点1", "核心观点2", "核心观点3"],
     "ai_summary": "AI智能分析总结（150字以内，专业且易懂，需要综合技术面、基本面和新闻面）"
 }}
 
+注意：
+- dimensions 中每个维度评分 0-100，trend=趋势、momentum=动量、valuation=估值、quality=质量、sentiment=情绪
+- price_prediction 中价格预测基于当前价格和分析，概率之和应为100
+- catalysts 给出1-3个近期可能影响股价的关键催化因素
 只返回 JSON，不要其他内容。"""
 
     content, error_type = await call_glm_api(system_prompt, user_prompt, 600)
@@ -469,27 +502,36 @@ async def get_full_ai_analysis(
     except Exception as e:
         print(f"[AI] 获取 {code} 补充数据失败: {e}")
 
-    # 1 & 2. 公司分析 + 基本面分析 并行执行（传入真实数据）
-    company_analysis, fundamental_analysis = await asyncio.gather(
-        generate_company_analysis(
-            name, code, industry, price, market_cap,
-            financial_report=financial_report,
-            news_list=news_list,
-        ),
-        generate_fundamental_analysis(
-            name, code, price, change, market_cap, indicators,
-            financial_report=financial_report,
-        ),
-    )
-
-    # 3. AI 智能评分和建议（依赖上面两个结果，串行，传入所有数据）
-    ai_recommendation = await generate_ai_score_and_recommendation(
-        name, code, price, change, score,
-        indicators, suggestion,
-        company_analysis, fundamental_analysis,
+    # 1, 2, 3 全部并行执行（AI评分不再依赖前两步结果，改为独立prompt包含原始数据）
+    company_task = generate_company_analysis(
+        name, code, industry, price, market_cap,
         financial_report=financial_report,
         news_list=news_list,
     )
+    fundamental_task = generate_fundamental_analysis(
+        name, code, price, change, market_cap, indicators,
+        financial_report=financial_report,
+    )
+    # AI评分现在直接传入原始数据，不依赖 company/fundamental 结果
+    ai_rec_task = generate_ai_score_and_recommendation(
+        name, code, price, change, score,
+        indicators, suggestion,
+        generate_default_company_analysis(name, industry),  # 占位默认值
+        generate_default_fundamental_analysis(price, change, market_cap),  # 占位默认值
+        financial_report=financial_report,
+        news_list=news_list,
+    )
+
+    # 用 asyncio.gather + return_exceptions 实现全并行，单个失败不影响其他
+    results = await asyncio.gather(
+        company_task, fundamental_task, ai_rec_task,
+        return_exceptions=True,
+    )
+
+    # 提取结果（异常时使用默认值）
+    company_analysis = results[0] if isinstance(results[0], dict) else generate_default_company_analysis(name, industry)
+    fundamental_analysis = results[1] if isinstance(results[1], dict) else generate_default_fundamental_analysis(price, change, market_cap)
+    ai_recommendation = results[2] if isinstance(results[2], dict) else generate_default_ai_recommendation(score, suggestion)
 
     result = {
         "company": company_analysis,

@@ -252,7 +252,7 @@
 
 ### 🔴 BUG-001: 股票搜索路由冲突
 
-**文件**: `/Users/yuqiang/Documents/macbookair_files/AI_path/projects/software/stock-advisor/backend/app/api/stock.py`
+**文件**: `/Users/derek/Documents/macbookair_files/AI_path/projects/software/stock-advisor/backend/app/api/stock.py`
 
 **问题代码**:
 ```python
@@ -446,7 +446,7 @@ stock-advisor/
 如有测试相关问题,请联系:
 - **测试负责人**: Test Expert
 - **QA 负责人**: qa-guardian
-- **项目位置**: `/Users/yuqiang/Documents/macbookair_files/AI_path/projects/software/stock-advisor/`
+- **项目位置**: `/Users/derek/Documents/macbookair_files/AI_path/projects/software/stock-advisor/`
 
 ---
 

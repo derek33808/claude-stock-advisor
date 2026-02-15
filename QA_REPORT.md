@@ -501,6 +501,241 @@ Code review for three newly completed features:
 
 ---
 
+---
+
+## 12. Performance Optimization Code Review - 2026-02-10
+
+### Review Scope
+
+Code review for major performance optimization across 22 files:
+- **Backend (13 files)**: urllib -> httpx async migration, asyncio.gather parallelization, TTLCache caching, event loop antipattern removal
+- **Frontend (9 files)**: Skeleton loading, SSR timeout/degradation, differentiated timeouts, double-wake removal, SSE robustness, anti-duplicate loading, effect dependency fixes
+
+### Review Summary
+
+| Level | Count | Description |
+|-------|-------|-------------|
+| Critical | 2 | Must fix before deployment |
+| Major | 3 | Recommend fix, not blocking |
+| Minor | 4 | Code quality improvements |
+| PASS | 13 | Review passed |
+
+**Overall Assessment**: High quality optimization. Async migration is correct, parallelization is well designed. 2 Critical issues need fixing.
+
+---
+
+### Critical Issues
+
+#### CR5-C001: `main.py` debug endpoint missing `await` on async functions
+
+**File**: `backend/app/main.py:111-146`
+**Problem**: `/debug/stock/{code}` endpoint calls `eastmoney_service.get_stock_history()`, `get_stock_realtime()`, `get_history()`, `get_realtime()` — all converted to `async` in this optimization — **without `await`**.
+
+```python
+# Line 111-112 (and similar at 141-146)
+df_em = eastmoney_service.get_stock_history(code, days=60)  # Missing await!
+rt_em = eastmoney_service.get_stock_realtime(code)           # Missing await!
+```
+
+**Impact**: Returns coroutine objects instead of data. `df_em is not None` always True (coroutine != None), `len(df_em)` throws TypeError. Debug endpoint completely broken.
+
+**Fix**: Add `await` to all 6 async calls in the debug endpoint.
+
+#### CR5-C002: `refresh.py` SSE loses per-stock progress events after parallelization
+
+**File**: `backend/app/api/refresh.py:95-123`
+**Problem**: `asyncio.gather` runs all stock refreshes in parallel but only yields a single progress event after ALL stocks complete. The SSE stream goes silent during the entire stock refresh phase.
+
+```python
+# All stocks refresh in parallel...
+refresh_results = await asyncio.gather(
+    *[_refresh_one(c) for c in codes]
+)
+# ...only ONE yield happens here, after all are done
+```
+
+**Impact**: Frontend `RefreshAllButton.tsx` receives no intermediate progress during stock refresh. Progress bar appears stuck between recommendations completion and final 100%.
+
+**Fix Options**:
+1. Use `asyncio.Queue` in `_refresh_one` to push progress events, drain queue in generator
+2. Use `asyncio.as_completed` to yield as each stock finishes
+3. Accept this as a tradeoff of parallelization (simpler but worse UX)
+
+---
+
+### Major Issues
+
+#### CR5-M001: `chat_service.py` synchronous DB calls block event loop
+
+**File**: `backend/app/services/chat_service.py:125-139, 142-175, 229-255, 258-272`
+**Problem**: `get_remaining_quota()`, `find_similar_answer()`, `save_chat_history()`, `get_chat_history()` are synchronous functions with Supabase SDK blocking I/O. Called directly within `async def ask_question()`.
+
+**Impact**: Blocks event loop during DB queries. Low impact at current traffic but violates async best practices.
+
+**Fix**: Wrap with `await asyncio.to_thread()` or convert to async.
+
+#### CR5-M002: `cache_service.py` all functions synchronous, blocking in async handlers
+
+**File**: `backend/app/services/cache_service.py` (called by `stock.py`)
+**Problem**: `get_cached_analysis()`, `save_analysis_cache()`, `get_cached_analyses_batch()` etc. all use synchronous Supabase SDK calls. Called directly in async API handlers.
+
+**Impact**: Same as M001. Acceptable short-term for MVP traffic levels.
+
+#### CR5-M003: `db/supabase.py` async def functions with no actual await
+
+**File**: `backend/app/db/supabase.py:29-258`
+**Problem**: All functions declared `async def` but contain only synchronous Supabase SDK calls. No `await` inside any function body. Pre-existing issue, not introduced by this optimization.
+
+**Impact**: Misleading — functions appear async but still block. Works because callers can `await` them (returns coroutine that immediately resolves).
+
+---
+
+### Minor Issues
+
+#### CR5-m001: `StockChatPanel.tsx` useEffect missing `loadHistory` dependency
+
+**File**: `src/components/StockChatPanel.tsx:30-34`
+```tsx
+useEffect(() => {
+  if (expanded) { loadHistory(); }
+}, [expanded, code]);  // loadHistory not in deps
+```
+**Impact**: Functionally fine but violates React exhaustive-deps rule.
+
+#### CR5-m002: `http_client.py` lazy singleton without lock
+
+**File**: `backend/app/http_client.py:23-33`
+**Problem**: `get_client()` has no lock on global `_client` initialization. Safe under asyncio single-threaded model, but fragile if `asyncio.to_thread` is used.
+
+**Suggestion**: Pre-create in FastAPI startup event.
+
+#### CR5-m003: `_get_stock_cache_ttl()` defined but never used
+
+**File**: `backend/app/api/stock.py:26-30`
+**Problem**: Dead code. TTLCache TTL is fixed at creation time (180s), function would need to rebuild the cache to change TTL.
+
+#### CR5-m004: ETF price precision inconsistency between APIs
+
+**File**: `backend/app/services/eastmoney_service.py`
+**Problem**: `get_batch_realtime()` returns ETF prices with 3 decimals (`round(price, 3)`), while `get_stock_realtime()` returns 2 decimals (`round(price, 2)`).
+
+**Impact**: Same ETF shows different price precision depending on API path.
+
+---
+
+### PASS - Files that passed review
+
+#### Backend (11 PASS)
+
+| # | File | Notes |
+|---|------|-------|
+| 1 | `requirements.txt` | cachetools 5.3.2 + httpx 0.27.0 versions appropriate, no conflicts |
+| 2 | `http_client.py` | Shared AsyncClient with connection pooling (20 max, 10 keepalive), proper shutdown |
+| 3 | `main.py` (lifecycle) | `close_client()` correctly awaited in shutdown event |
+| 4 | `eastmoney_service.py` | Full async migration correct. Retry with `await asyncio.sleep(0.3)`. Yahoo fallback uses `asyncio.to_thread` for sync wrapper. Batch API via `ulist.np` single HTTP call |
+| 5 | `glm_service.py` | Async httpx POST correct, error status handling preserved |
+| 6 | `ai_analysis_service.py` | `asyncio.gather` for parallel company + fundamental analysis, serial AI recommendation. TTLCache(100, 14400) appropriate |
+| 7 | `news_service.py` | Simple async migration, correct |
+| 8 | `fundamental_service.py` | Simple async migration, correct |
+| 9 | `comprehensive_analysis_service.py` | 5-dimension parallel: `create_task` + `gather` pattern correct |
+| 10 | `scheduler.py` | Removed `asyncio.new_event_loop()` antipattern. Now uses `AsyncIOScheduler` + direct `gather` + `Semaphore(3)`. Deadline check prevents runaway jobs |
+| 11 | `stock.py` | 3-layer cache (L1 memory TTL -> L2 Supabase -> L3 live) correct. `Semaphore(5)` for batch analysis. `asyncio.gather` for parallel history+realtime and summary+AI analysis |
+
+#### Frontend (8 PASS)
+
+| # | File | Notes |
+|---|------|-------|
+| 1 | `loading.tsx` | Skeleton matches page layout structure |
+| 2 | `page.tsx` | 15s AbortController timeout on SSR fetch, graceful degradation to "connecting" page |
+| 3 | `api.ts` | Differentiated timeouts: recommendations 15s/1 retry, stock 30s/1 retry, rankings 120s/0 retry. Backend wake check integrated |
+| 4 | `StockDetailClient.tsx` | Removed redundant `wakeUpBackend()` call — `apiRequest` handles it internally. `useMemo` for cache hint |
+| 5 | `RefreshAllButton.tsx` | SSE buffer handling with `lines.pop()` for incomplete chunks. `JSON.parse` wrapped in try-catch (fixed from CR4-C002). `router.refresh()` replaces `window.location.reload()` (fixed from CR4-m004) |
+| 6 | `HomeContent.tsx` | `useMemo(watchlistKey)` prevents re-render cascade. `prefetchedRef` prevents duplicate prefetch. `useCallback(loadWatchlistStocks)` stable reference |
+| 7 | `ProgressBar.tsx` | Logarithmic progress (500ms interval, max 95%). Clean and performant |
+| 8 | `MarketHeader.tsx` | No changes from optimization; code is clean |
+
+---
+
+### API Compatibility Check
+
+| Endpoint | Signature | Response Format | Result |
+|----------|-----------|----------------|--------|
+| GET /api/v1/stock/{code} | No change | No change | PASS |
+| GET /api/v1/stocks/search | No change | No change | PASS |
+| GET /api/v1/stocks/batch | No change | No change | PASS |
+| POST /api/v1/stocks/prefetch | No change | No change | PASS |
+| GET /api/v1/stock/{code}/kline | No change | No change | PASS |
+| GET /api/v1/stock/{code}/ai-analysis | No change | No change | PASS |
+| GET /api/v1/rankings/ai | No change | No change | PASS |
+| POST /api/v1/refresh/all | No change | SSE format same, timing changed (see CR5-C002) | WARN |
+| POST /api/v1/stock/{code}/chat | No change | No change | PASS |
+
+### Import Completeness Check
+
+| File | New Imports | Status |
+|------|-----------|--------|
+| `eastmoney_service.py` | `from app.http_client import get_client` | OK |
+| `glm_service.py` | `from app.http_client import get_client` | OK |
+| `ai_analysis_service.py` | `from cachetools import TTLCache`, `from app.http_client import get_client` | OK |
+| `news_service.py` | `from app.http_client import get_client` | OK |
+| `fundamental_service.py` | `from app.http_client import get_client` | OK |
+| `chat_service.py` | `from app.http_client import get_client` | OK |
+| `stock.py` | `from cachetools import TTLCache` | OK |
+| `refresh.py` | `import asyncio` | OK |
+| `main.py` | `from app.http_client import close_client` | OK |
+
+### Parallel Safety Assessment
+
+| Location | Pattern | Safe? | Notes |
+|----------|---------|-------|-------|
+| `stock.py:118-121` | `asyncio.gather(get_history, get_realtime)` | YES | Independent I/O operations |
+| `stock.py:251-272` | `asyncio.gather(summary_task, ai_task)` | YES | Independent AI calls |
+| `stock.py:381-416` | `Semaphore(5) + gather` for batch analysis | YES | Semaphore limits concurrent analysis |
+| `stock.py:589-646` | `Semaphore(5) + gather` for AI rankings | YES | Semaphore limits concurrent analysis |
+| `ai_analysis_service.py:430-433` | `gather(company, fundamental)` | YES | Independent AI calls |
+| `refresh.py:96-117` | `Semaphore(3) + gather` for stock refresh | YES | asyncio single-threaded; `nonlocal completed_count` safe |
+| `scheduler.py:103-119` | `Semaphore(3) + gather` for cache warm | YES | Same pattern as refresh |
+| `comprehensive_analysis_service.py:35-48` | `create_task + gather` for 5 dimensions | YES | Independent data fetches |
+
+### Cache Consistency Check
+
+| Cache | Type | TTL | Max Size | Behavior |
+|-------|------|-----|----------|----------|
+| `_ai_analysis_cache` (ai_analysis_service) | TTLCache | 4 hours | 100 | Same-day same-stock reuse; auto-eviction |
+| `_stock_analysis_cache` (stock.py) | TTLCache | 3 min | 200 | Per-stock per-ai_analysis key; auto-eviction |
+| `_ai_rankings_cache` (stock.py) | TTLCache | 30 min | 1 | Single key "rankings"; auto-eviction |
+| `stockCache` (api.ts frontend) | Map | 3 min (manual) | Unbounded | Manual TTL check; no eviction |
+
+All TTLCache instances correctly replace previous `dict` caches with automatic expiration.
+
+---
+
+### Priority Fix List
+
+1. **Immediate (Critical)**:
+   - CR5-C001: Add `await` to 6 calls in `main.py` debug endpoint
+   - CR5-C002: Decide on SSE progress strategy for parallel refresh
+
+2. **Next Version (Major)**:
+   - CR5-M001: Wrap chat_service sync DB calls
+   - CR5-M002: Wrap cache_service sync DB calls
+   - CR5-M003: Migrate to async Supabase client (long-term)
+
+3. **When Available (Minor)**:
+   - CR5-m001 ~ CR5-m004: Code quality details
+
+---
+
+### Review Verdict: CONDITIONALLY APPROVED
+
+**Must fix before deployment**: CR5-C001 (debug endpoint missing await)
+
+**Can defer**: CR5-C002 (SSE progress UX degradation — functional, just less responsive)
+
+**Not blocking**: All Major and Minor issues
+
+---
+
 *QA Report generated by qa-guardian*
-*Report Version: 4.0 (P0/P1 Feature Code Review)*
-*Last Updated: 2026-02-09*
+*Report Version: 5.0 (Performance Optimization Code Review)*
+*Last Updated: 2026-02-10*

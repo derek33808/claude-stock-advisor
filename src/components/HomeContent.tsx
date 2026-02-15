@@ -132,6 +132,9 @@ export default function HomeContent({ recommendations }: HomeContentProps) {
         return { ...makePlaceholder(item.code, item.name), industry: '暂无数据' };
       });
 
+      // 按评分降序排列（有评分的排前面）
+      ordered.sort((a, b) => (b.score || 0) - (a.score || 0));
+
       setWatchlistStocks(ordered);
     } catch {
       setWatchlistError('加载自选股失败，请检查网络后重试');

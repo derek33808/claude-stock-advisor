@@ -1413,10 +1413,10 @@ if __name__ == "__main__":
 ## 10. 附录
 
 ### 10.1 参考文档
-- [DESIGN.md](/Users/yuqiang/Documents/macbookair_files/AI_path/projects/software/stock-advisor/DESIGN.md) - 产品设计文档
-- [PROGRESS.md](/Users/yuqiang/Documents/macbookair_files/AI_path/projects/software/stock-advisor/PROGRESS.md) - 开发进度
-- [QA_REPORT.md](/Users/yuqiang/Documents/macbookair_files/AI_path/projects/software/stock-advisor/QA_REPORT.md) - QA 审查报告
-- [TEST_PLAN.md](/Users/yuqiang/Documents/macbookair_files/AI_path/projects/software/stock-advisor/TEST_PLAN.md) - E2E 测试计划
+- [DESIGN.md](/Users/derek/Documents/macbookair_files/AI_path/projects/software/stock-advisor/DESIGN.md) - 产品设计文档
+- [PROGRESS.md](/Users/derek/Documents/macbookair_files/AI_path/projects/software/stock-advisor/PROGRESS.md) - 开发进度
+- [QA_REPORT.md](/Users/derek/Documents/macbookair_files/AI_path/projects/software/stock-advisor/QA_REPORT.md) - QA 审查报告
+- [TEST_PLAN.md](/Users/derek/Documents/macbookair_files/AI_path/projects/software/stock-advisor/TEST_PLAN.md) - E2E 测试计划
 
 ### 10.2 外部资源
 - [AKShare 文档](https://akshare.akfamily.xyz/)

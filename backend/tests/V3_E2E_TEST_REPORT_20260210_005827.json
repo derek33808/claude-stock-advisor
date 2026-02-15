@@ -1,0 +1,85 @@
+{
+  "test_time": "2026-02-10T00:58:27.162729",
+  "base_url": "https://stock-advisor-api-6vtb.onrender.com/api/v1",
+  "summary": {
+    "total": 9,
+    "passed": 6,
+    "failed": 1,
+    "warnings": 2,
+    "pass_rate": "66.7%"
+  },
+  "results": [
+    {
+      "category": "缓存功能",
+      "name": "单股查询返回 cache_info",
+      "status": "FAIL",
+      "message": "响应中没有 cache_info 字段",
+      "response_time": "26.14s",
+      "timestamp": "2026-02-10 00:57:20"
+    },
+    {
+      "category": "缓存功能",
+      "name": "L1 内存缓存命中",
+      "status": "WARN",
+      "message": "预期 L1 命中,实际: {}",
+      "response_time": "1.03s",
+      "timestamp": "2026-02-10 00:57:22"
+    },
+    {
+      "category": "批量加载",
+      "name": "批量查询返回正确数量",
+      "status": "PASS",
+      "message": "返回 3/3 只股票",
+      "response_time": "38.42s",
+      "timestamp": "2026-02-10 00:58:01"
+    },
+    {
+      "category": "批量加载",
+      "name": "批量查询返回 cache_info",
+      "status": "WARN",
+      "message": "仅 0/3 股票含 cache_info",
+      "response_time": "N/A",
+      "timestamp": "2026-02-10 00:58:01"
+    },
+    {
+      "category": "AI 问答",
+      "name": "问答接口返回有效答案",
+      "status": "PASS",
+      "message": "答案长度: 83 字符, tokens: 243, 剩余: 9",
+      "response_time": "11.33s",
+      "timestamp": "2026-02-10 00:58:12"
+    },
+    {
+      "category": "AI 问答",
+      "name": "问答历史查询",
+      "status": "PASS",
+      "message": "返回 1 条历史记录",
+      "response_time": "2.33s",
+      "timestamp": "2026-02-10 00:58:15"
+    },
+    {
+      "category": "v2.0 回归",
+      "name": "推荐列表 API",
+      "status": "PASS",
+      "message": "返回 15 只推荐股票",
+      "response_time": "5.24s",
+      "timestamp": "2026-02-10 00:58:21"
+    },
+    {
+      "category": "v2.0 回归",
+      "name": "自选股列表 API",
+      "status": "PASS",
+      "message": "返回 0 只自选股",
+      "response_time": "1.06s",
+      "timestamp": "2026-02-10 00:58:22"
+    },
+    {
+      "category": "v2.0 回归",
+      "name": "股票搜索 API",
+      "status": "PASS",
+      "message": "搜索'平安'返回 2 个结果",
+      "response_time": "4.96s",
+      "timestamp": "2026-02-10 00:58:27"
+    }
+  ]
+}

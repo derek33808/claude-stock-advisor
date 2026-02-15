@@ -445,3 +445,317 @@ def calculate_score(indicators: dict, suggestion: dict) -> int:
 
     # Clamp to 0-100
     return max(0, min(100, score))
+
+
+def calculate_score_detailed(indicators: dict, suggestion: dict, current_price: float = 0, df: pd.DataFrame = None) -> dict:
+    """
+    计算多维度评分 (每个维度 0-100)
+
+    Returns:
+        dict with trend_score, momentum_score, volatility_score, volume_score, composite
+    """
+    # ===== 趋势得分 (0-100) =====
+    trend_score = 50
+    macd = indicators.get("macd", {})
+    ma = indicators.get("ma", {})
+
+    # MACD 方向
+    if macd.get("signal") == "金叉":
+        trend_score += 25
+    elif macd.get("signal") == "多头":
+        trend_score += 15
+    elif macd.get("signal") == "空头":
+        trend_score -= 15
+    elif macd.get("signal") == "死叉":
+        trend_score -= 25
+
+    # MA 排列
+    ma_trend = ma.get("trend", "")
+    if ma_trend == "多头排列":
+        trend_score += 20
+    elif ma_trend == "多头回调":
+        trend_score += 10
+    elif ma_trend == "空头排列":
+        trend_score -= 20
+    elif ma_trend == "空头反弹":
+        trend_score -= 10
+
+    # 价格 vs MA5
+    if current_price > 0 and ma.get("ma5", 0) > 0:
+        if current_price > ma["ma5"]:
+            trend_score += 5
+        else:
+            trend_score -= 5
+
+    trend_score = max(0, min(100, trend_score))
+
+    # ===== 动量得分 (0-100) =====
+    momentum_score = 50
+    rsi = indicators.get("rsi", {})
+    kdj = indicators.get("kdj", {})
+    rsi6 = rsi.get("rsi6", 50)
+
+    # RSI 状态
+    if 30 <= rsi6 <= 50:
+        momentum_score += 20
+    elif 20 <= rsi6 < 30:
+        momentum_score += 15  # 超卖反弹
+    elif 50 < rsi6 <= 70:
+        momentum_score += 10
+    elif rsi6 > 80:
+        momentum_score -= 20  # 严重超买
+    elif rsi6 > 70:
+        momentum_score -= 10
+    elif rsi6 < 20:
+        momentum_score += 10  # 极度超卖
+
+    # KDJ
+    j_val = kdj.get("j", 50)
+    if j_val < 20:
+        momentum_score += 15  # 超卖
+    elif j_val > 80:
+        momentum_score -= 15  # 超买
+    elif 20 <= j_val <= 50:
+        momentum_score += 5
+
+    # 近5日涨幅（如有 df）
+    if df is not None and len(df) >= 5:
+        try:
+            close_5d_ago = float(df["close"].iloc[-5])
+            close_now = float(df["close"].iloc[-1])
+            pct_5d = (close_now - close_5d_ago) / close_5d_ago * 100
+            if 0 < pct_5d <= 5:
+                momentum_score += 10
+            elif 5 < pct_5d <= 10:
+                momentum_score += 5
+            elif pct_5d > 10:
+                momentum_score -= 5  # 涨太多
+            elif -5 < pct_5d < 0:
+                momentum_score += 5  # 小幅回调
+            elif pct_5d <= -10:
+                momentum_score -= 10
+        except (ValueError, IndexError):
+            pass
+
+    momentum_score = max(0, min(100, momentum_score))
+
+    # ===== 波动得分 (0-100, 高分=低波动=安全) =====
+    volatility_score = 50
+    atr = indicators.get("atr", 0)
+    boll = indicators.get("boll", {})
+
+    # ATR 占比
+    if current_price > 0 and atr > 0:
+        atr_pct = atr / current_price * 100
+        if atr_pct < 2:
+            volatility_score += 25  # 低波动
+        elif atr_pct < 3:
+            volatility_score += 10
+        elif atr_pct > 5:
+            volatility_score -= 25  # 高波动
+        elif atr_pct > 4:
+            volatility_score -= 10
+
+    # BOLL 位置
+    boll_upper = boll.get("upper", 0)
+    boll_lower = boll.get("lower", 0)
+    boll_mid = boll.get("mid", 0)
+    if current_price > 0 and boll_upper > 0 and boll_lower > 0:
+        boll_width = (boll_upper - boll_lower) / boll_mid * 100 if boll_mid > 0 else 0
+        if boll_width < 5:
+            volatility_score += 15  # 窄带=即将突破
+        elif boll_width > 15:
+            volatility_score -= 10
+
+        if current_price >= boll_upper * 0.98:
+            volatility_score -= 10  # 上轨附近风险
+        elif current_price <= boll_lower * 1.02:
+            volatility_score += 10  # 下轨附近安全
+
+    volatility_score = max(0, min(100, volatility_score))
+
+    # ===== 量能得分 (0-100) =====
+    volume_score = 50
+    vol = indicators.get("volume", {})
+    vol_ratio = vol.get("ratio", 1)
+    vol_status = vol.get("status", "正常")
+
+    if vol_status == "温和放量":
+        volume_score += 20
+    elif vol_status == "放量":
+        volume_score += 10
+    elif vol_status == "缩量":
+        volume_score -= 15
+    elif vol_status == "正常":
+        volume_score += 5
+
+    # 量价关系（价涨量增=健康）
+    if df is not None and len(df) >= 2:
+        try:
+            price_up = float(df["close"].iloc[-1]) > float(df["close"].iloc[-2])
+            vol_up = float(df["volume"].iloc[-1]) > float(df["volume"].iloc[-2])
+            if price_up and vol_up:
+                volume_score += 15  # 价涨量增
+            elif not price_up and vol_up:
+                volume_score -= 10  # 价跌放量
+            elif price_up and not vol_up:
+                volume_score -= 5   # 价涨缩量
+        except (ValueError, IndexError):
+            pass
+
+    volume_score = max(0, min(100, volume_score))
+
+    # ===== 加权综合分 =====
+    composite = int(
+        trend_score * 0.35 +
+        momentum_score * 0.25 +
+        volatility_score * 0.20 +
+        volume_score * 0.20
+    )
+    composite = max(0, min(100, composite))
+
+    return {
+        "trend_score": trend_score,
+        "momentum_score": momentum_score,
+        "volatility_score": volatility_score,
+        "volume_score": volume_score,
+        "composite": composite,
+    }
+
+
+def calculate_price_prediction(indicators: dict, current_price: float, df: pd.DataFrame = None) -> dict:
+    """
+    基于技术指标的5日价格预测
+
+    使用 ATR、MA趋势、RSI、BOLL 综合估算
+
+    Returns:
+        dict with 5d_target_high, 5d_target_low, 5d_most_likely,
+              probability_up, probability_down, probability_flat,
+              expected_return_pct
+    """
+    if current_price <= 0:
+        return _default_prediction(current_price)
+
+    atr = indicators.get("atr", current_price * 0.03)
+    if atr <= 0:
+        atr = current_price * 0.03
+
+    rsi = indicators.get("rsi", {})
+    ma = indicators.get("ma", {})
+    boll = indicators.get("boll", {})
+    macd = indicators.get("macd", {})
+
+    rsi6 = rsi.get("rsi6", 50)
+    ma_trend = ma.get("trend", "震荡")
+    macd_signal = macd.get("signal", "未知")
+    boll_upper = boll.get("upper", current_price * 1.05)
+    boll_lower = boll.get("lower", current_price * 0.95)
+
+    # 基于 ATR 的 5 日波动区间（根号5倍 ATR）
+    atr_5d = atr * math.sqrt(5)
+
+    # 基础概率
+    prob_up = 50
+    prob_down = 30
+    prob_flat = 20
+
+    # MA 趋势调整
+    if ma_trend == "多头排列":
+        prob_up += 15
+        prob_down -= 10
+    elif ma_trend == "多头回调":
+        prob_up += 5
+        prob_down -= 3
+    elif ma_trend == "空头排列":
+        prob_up -= 15
+        prob_down += 10
+    elif ma_trend == "空头反弹":
+        prob_up -= 5
+        prob_down += 3
+
+    # MACD 调整
+    if macd_signal == "金叉":
+        prob_up += 10
+        prob_down -= 5
+    elif macd_signal == "死叉":
+        prob_up -= 10
+        prob_down += 5
+
+    # RSI 超买超卖调整
+    if rsi6 > 80:
+        prob_up -= 15
+        prob_down += 10
+    elif rsi6 > 70:
+        prob_up -= 5
+        prob_down += 3
+    elif rsi6 < 20:
+        prob_up += 15
+        prob_down -= 10
+    elif rsi6 < 30:
+        prob_up += 5
+        prob_down -= 3
+
+    # 归一化概率
+    total = prob_up + prob_down + prob_flat
+    prob_up = max(5, min(85, int(prob_up / total * 100)))
+    prob_down = max(5, min(85, int(prob_down / total * 100)))
+    prob_flat = 100 - prob_up - prob_down
+    if prob_flat < 5:
+        excess = 5 - prob_flat
+        prob_flat = 5
+        if prob_up > prob_down:
+            prob_up -= excess
+        else:
+            prob_down -= excess
+
+    # 计算目标价
+    # 上行偏移受趋势调整
+    up_multiplier = 1.0
+    down_multiplier = 1.0
+    if ma_trend in ("多头排列", "多头回调"):
+        up_multiplier = 1.2
+        down_multiplier = 0.8
+    elif ma_trend in ("空头排列", "空头反弹"):
+        up_multiplier = 0.8
+        down_multiplier = 1.2
+
+    target_high = current_price + atr_5d * up_multiplier
+    target_low = current_price - atr_5d * down_multiplier
+
+    # 限制在 BOLL 范围内
+    target_high = min(target_high, boll_upper * 1.02)
+    target_low = max(target_low, boll_lower * 0.98)
+
+    # 最可能价格
+    if prob_up > prob_down:
+        most_likely = current_price + (target_high - current_price) * 0.3
+    elif prob_down > prob_up:
+        most_likely = current_price - (current_price - target_low) * 0.3
+    else:
+        most_likely = current_price
+
+    expected_return = (most_likely - current_price) / current_price * 100
+
+    return {
+        "5d_target_high": safe_round(target_high, 2),
+        "5d_target_low": safe_round(target_low, 2),
+        "5d_most_likely": safe_round(most_likely, 2),
+        "probability_up": prob_up,
+        "probability_down": prob_down,
+        "probability_flat": prob_flat,
+        "expected_return_pct": safe_round(expected_return, 2),
+    }
+
+
+def _default_prediction(current_price: float) -> dict:
+    """默认预测值"""
+    return {
+        "5d_target_high": safe_round(current_price * 1.05, 2),
+        "5d_target_low": safe_round(current_price * 0.95, 2),
+        "5d_most_likely": safe_round(current_price, 2),
+        "probability_up": 33,
+        "probability_down": 33,
+        "probability_flat": 34,
+        "expected_return_pct": 0,
+    }
