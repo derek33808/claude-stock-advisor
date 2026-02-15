@@ -32,6 +32,7 @@ def build_chat_prompt(
     stock_context: dict,
     question: str,
     template: Optional[str] = None,
+    chat_history: Optional[list] = None,
 ) -> str:
     """构建问答 Prompt"""
     base_context = f"""
@@ -239,12 +240,22 @@ def build_chat_prompt(
 {summary[:300]}
 """
 
-    return f"""{base_context}
+    # 加入最近对话历史，支持连续追问
+    history_context = ""
+    if chat_history:
+        history_context = "\n## 最近对话记录\n"
+        for item in chat_history[-3:]:  # 最近 3 轮
+            history_context += f"用户：{item.get('question', '')}\n"
+            answer = item.get('answer', '')
+            if len(answer) > 200:
+                answer = answer[:200] + "..."
+            history_context += f"助手：{answer}\n\n"
 
+    return f"""{base_context}{history_context}
 ## 用户问题
 {question}
 
-请根据以上信息回答用户问题。"""
+请根据以上股票分析数据和对话记录回答用户问题。如果用户的问题涉及上面提供的数据（评分、目标价、买入区间等），请直接引用这些数据进行解释。"""
 
 
 def _format_amount(value) -> str:
@@ -479,8 +490,12 @@ async def ask_question(
         except Exception as e:
             print(f"[Chat] Error fetching financial report for {code}: {e}")
 
+    # 3.9 获取最近对话历史（支持连续追问）
+    recent_history = get_chat_history(code, user_id, limit=3)
+    recent_history.reverse()  # 按时间正序
+
     # 4. 构建 prompt 并调用大模型
-    user_prompt = build_chat_prompt(stock_context, question, template)
+    user_prompt = build_chat_prompt(stock_context, question, template, chat_history=recent_history)
     result = await call_chat_llm(CHAT_SYSTEM_PROMPT, user_prompt, model_id=model_id)
 
     if result.get("error"):
