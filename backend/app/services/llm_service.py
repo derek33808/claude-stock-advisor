@@ -177,9 +177,6 @@ async def _call_llm_once(
         if result.get("choices") and len(result["choices"]) > 0:
             message = result["choices"][0].get("message", {})
             content = message.get("content", "")
-            # GLM-5 思考模式：content 可能为空，实际内容在 reasoning_content
-            if not content and message.get("reasoning_content"):
-                content = message["reasoning_content"]
             if content:
                 return content.strip(), None
 
@@ -226,10 +223,10 @@ async def call_llm(
         "max_tokens": max_tokens,
     }
 
-    # GLM-5 倾向输出完整推理链，增大 token 并在 system prompt 中约束
+    # GLM-5 思考模型：启用 thinking 分离推理和回答，增大 token
     if model_id == "glm-5":
+        data["thinking"] = {"type": "enabled"}
         data["max_tokens"] = max(max_tokens, 2048)
-        data["messages"][0]["content"] += "\n\n重要：请直接给出结论性的回答，不要展示你的推理步骤、分析过程或思考链。"
 
     # 最多重试2次（速率限制时等待后重试）
     for attempt in range(3):
