@@ -1,0 +1,289 @@
+{
+  "test_time": "2026-02-15T21:53:57.268425",
+  "base_url": "https://stock-advisor-api-6vtb.onrender.com",
+  "summary": {
+    "total": 25,
+    "passed": 24,
+    "failed": 0,
+    "warned": 1,
+    "pass_rate": "96.0%",
+    "timeouts": 2
+  },
+  "results": [
+    {
+      "category": "健康检查",
+      "name": "冷启动 /health",
+      "status": "PASS",
+      "message": "status=healthy",
+      "response_time": 3.751,
+      "threshold": 60,
+      "timeout_exceeded": false,
+      "status_code": 200,
+      "timestamp": "2026-02-15T21:52:06.485779"
+    },
+    {
+      "category": "健康检查",
+      "name": "热响应 /health",
+      "status": "PASS",
+      "message": "1.68s < 5s",
+      "response_time": 1.681,
+      "threshold": 5,
+      "timeout_exceeded": false,
+      "status_code": 200,
+      "timestamp": "2026-02-15T21:52:08.167304"
+    },
+    {
+      "category": "搜索",
+      "name": "按名称搜索'平安'",
+      "status": "PASS",
+      "message": "返回 2 个结果",
+      "response_time": 4.681,
+      "threshold": 15,
+      "timeout_exceeded": false,
+      "status_code": 200,
+      "timestamp": "2026-02-15T21:52:12.847992"
+    },
+    {
+      "category": "搜索",
+      "name": "按代码搜索'600519'",
+      "status": "PASS",
+      "message": "返回 1 个结果, 600519找到",
+      "response_time": 1.764,
+      "threshold": 15,
+      "timeout_exceeded": false,
+      "status_code": 200,
+      "timestamp": "2026-02-15T21:52:14.612125"
+    },
+    {
+      "category": "搜索",
+      "name": "空结果搜索",
+      "status": "PASS",
+      "message": "count=0",
+      "response_time": 1.006,
+      "threshold": 15,
+      "timeout_exceeded": false,
+      "status_code": 200,
+      "timestamp": "2026-02-15T21:52:15.618555"
+    },
+    {
+      "category": "单股分析",
+      "name": "无AI分析 000001",
+      "status": "PASS",
+      "message": "score=75, indicators=有",
+      "response_time": 15.848,
+      "threshold": 15,
+      "timeout_exceeded": true,
+      "status_code": 200,
+      "timestamp": "2026-02-15T21:52:31.466793"
+    },
+    {
+      "category": "单股分析",
+      "name": "有AI分析 600519 (超时关键)",
+      "status": "PASS",
+      "message": "ai=True, ai_score=70, 12.55s/65s",
+      "response_time": 12.555,
+      "threshold": 65,
+      "timeout_exceeded": false,
+      "status_code": 200,
+      "timestamp": "2026-02-15T21:52:44.022206"
+    },
+    {
+      "category": "单股分析",
+      "name": "L1缓存命中 600519",
+      "status": "PASS",
+      "message": "cached=True, 1.29s",
+      "response_time": 1.293,
+      "threshold": 3,
+      "timeout_exceeded": false,
+      "status_code": 200,
+      "timestamp": "2026-02-15T21:52:46.717463"
+    },
+    {
+      "category": "单股分析",
+      "name": "响应字段完整性",
+      "status": "PASS",
+      "message": "所有必需字段均存在",
+      "response_time": 1.233,
+      "threshold": 10,
+      "timeout_exceeded": false,
+      "status_code": 200,
+      "timestamp": "2026-02-15T21:52:47.950992"
+    },
+    {
+      "category": "评分升级",
+      "name": "评分维度+价格预测",
+      "status": "PASS",
+      "message": "composite=65, up_prob=53%",
+      "response_time": 1.212,
+      "threshold": 10,
+      "timeout_exceeded": false,
+      "status_code": 200,
+      "timestamp": "2026-02-15T21:52:49.163696"
+    },
+    {
+      "category": "降级机制",
+      "name": "AI超时仍返回技术分析",
+      "status": "PASS",
+      "message": "score=75, indicators=有, ai=无",
+      "response_time": 1.119,
+      "threshold": 65,
+      "timeout_exceeded": false,
+      "status_code": 200,
+      "timestamp": "2026-02-15T21:52:50.282879"
+    },
+    {
+      "category": "批量查询",
+      "name": "3只股票批量查询",
+      "status": "PASS",
+      "message": "返回 3 只",
+      "response_time": 8.582,
+      "threshold": 15,
+      "timeout_exceeded": false,
+      "status_code": 200,
+      "timestamp": "2026-02-15T21:52:58.865462"
+    },
+    {
+      "category": "批量查询",
+      "name": "所有股票有评分>0",
+      "status": "PASS",
+      "message": "2/2 有评分",
+      "response_time": 3.291,
+      "threshold": 15,
+      "timeout_exceeded": false,
+      "status_code": 200,
+      "timestamp": "2026-02-15T21:53:02.157235"
+    },
+    {
+      "category": "批量查询",
+      "name": "10只股票批量查询",
+      "status": "PASS",
+      "message": "返回 10/10 只",
+      "response_time": 3.946,
+      "threshold": 15,
+      "timeout_exceeded": false,
+      "status_code": 200,
+      "timestamp": "2026-02-15T21:53:06.103483"
+    },
+    {
+      "category": "AI排名",
+      "name": "AI排名 top5",
+      "status": "PASS",
+      "message": "返回5只, 第一名: 招商银行 score=87",
+      "response_time": 0.943,
+      "threshold": 60,
+      "timeout_exceeded": false,
+      "status_code": 200,
+      "timestamp": "2026-02-15T21:53:07.047103"
+    },
+    {
+      "category": "自选股",
+      "name": "添加 600519",
+      "status": "PASS",
+      "message": "添加成功",
+      "response_time": 1.655,
+      "threshold": 10,
+      "timeout_exceeded": false,
+      "status_code": 200,
+      "timestamp": "2026-02-15T21:53:08.701768"
+    },
+    {
+      "category": "自选股",
+      "name": "查询列表",
+      "status": "PASS",
+      "message": "共1只, 600519存在",
+      "response_time": 4.768,
+      "threshold": 10,
+      "timeout_exceeded": false,
+      "status_code": 200,
+      "timestamp": "2026-02-15T21:53:13.469791"
+    },
+    {
+      "category": "自选股",
+      "name": "删除 600519",
+      "status": "PASS",
+      "message": "移除成功",
+      "response_time": 1.596,
+      "threshold": 10,
+      "timeout_exceeded": false,
+      "status_code": 200,
+      "timestamp": "2026-02-15T21:53:15.066836"
+    },
+    {
+      "category": "自选股",
+      "name": "验证删除成功",
+      "status": "PASS",
+      "message": "600519已删除",
+      "response_time": 2.117,
+      "threshold": 10,
+      "timeout_exceeded": false,
+      "status_code": 200,
+      "timestamp": "2026-02-15T21:53:17.184192"
+    },
+    {
+      "category": "AI问答",
+      "name": "股票问答",
+      "status": "PASS",
+      "message": "答案长度=570, tokens=0",
+      "response_time": 1.467,
+      "threshold": 90,
+      "timeout_exceeded": false,
+      "status_code": 200,
+      "timestamp": "2026-02-15T21:53:18.651696"
+    },
+    {
+      "category": "AI问答",
+      "name": "问答历史查询",
+      "status": "PASS",
+      "message": "返回 2 条记录",
+      "response_time": 1.771,
+      "threshold": 30,
+      "timeout_exceeded": false,
+      "status_code": 200,
+      "timestamp": "2026-02-15T21:53:20.422832"
+    },
+    {
+      "category": "推荐列表",
+      "name": "获取推荐",
+      "status": "PASS",
+      "message": "返回 11 只推荐股票",
+      "response_time": 2.858,
+      "threshold": 15,
+      "timeout_exceeded": false,
+      "status_code": 200,
+      "timestamp": "2026-02-15T21:53:23.281275"
+    },
+    {
+      "category": "K线数据",
+      "name": "600519 K线",
+      "status": "PASS",
+      "message": "60根K线, OHLCV=完整",
+      "response_time": 1.678,
+      "threshold": 10,
+      "timeout_exceeded": false,
+      "status_code": 200,
+      "timestamp": "2026-02-15T21:53:24.959385"
+    },
+    {
+      "category": "AI分析",
+      "name": "独立AI分析接口",
+      "status": "PASS",
+      "message": "company=True, fundamental=True, ai_rec=True",
+      "response_time": 2.059,
+      "threshold": 65,
+      "timeout_exceeded": false,
+      "status_code": 200,
+      "timestamp": "2026-02-15T21:53:27.018406"
+    },
+    {
+      "category": "并发测试",
+      "name": "3个并发请求",
+      "status": "WARN",
+      "message": "2/3 成功",
+      "response_time": 30.25,
+      "threshold": 20,
+      "timeout_exceeded": true,
+      "status_code": 0,
+      "timestamp": "2026-02-15T21:53:57.267969"
+    }
+  ]
+}
